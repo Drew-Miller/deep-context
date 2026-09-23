@@ -3,3 +3,8 @@ coverage/
 .DS_Store
 *.log
 .venv/
+
+# Deep Context private state
+/.deep-context/tasks/
+/.deep-context/.local/
+/.deep-context/repo

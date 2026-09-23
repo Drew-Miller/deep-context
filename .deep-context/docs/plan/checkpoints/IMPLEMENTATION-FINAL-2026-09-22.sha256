@@ -1,0 +1,9 @@
+# Aggregate of sorted per-file SHA-256 output for `.codex-plugin`, `skills`, `src`, `templates`, and `tests`:
+7bbba11b967d697d45cbc119c6ca3258993a9ddc4883760881b4364bcfb57b6c  implementation-files
+
+# Aggregate of SHA-256 output for package.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.json, and bin/deep-context.cjs:
+c22a5f3a2ca25a5421d97122d4c9f68cddd5b9a196e4b05c0ef08d1b6db7861c  package-and-launcher-files
+
+# Reproduce from the source root:
+# find .codex-plugin skills src templates tests -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256
+# shasum -a 256 package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json bin/deep-context.cjs | shasum -a 256

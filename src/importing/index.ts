@@ -5,7 +5,7 @@ import { git, isGitRepository } from "../core/git.js";
 import type { SourceRecord } from "../core/types.js";
 
 const MAX_TEXT_BYTES = 1_000_000;
-const excludedSegments = new Set([".git", "node_modules", ".build", "build", "dist", "coverage", "vendor", ".cache"]);
+const excludedSegments = new Set([".git", ".deep-context", "node_modules", ".build", "build", "dist", "coverage", "vendor", ".cache"]);
 const privatePatterns = [/(^|\/)\.env(?:\.|$)/i, /\.local\.json$/i, /credentials?/i, /secrets?/i, /private[-_.]?key/i];
 const textExtensions = new Set([".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".swift", ".ts", ".tsx", ".js", ".jsx", ".py", ".rb", ".rs", ".go", ".java", ".kt", ".cs", ".sh", ".sql", ".graphql"]);
 
@@ -34,12 +34,23 @@ function exclusionReason(relative: string): string | undefined {
   return undefined;
 }
 
-export async function inventoryRepository(repository: string): Promise<{ records: SourceRecord[]; head?: string; branch?: string; dirty: boolean }> {
+export async function inventoryRepository(
+  repository: string,
+  options: { excludedRoots?: string[] } = {},
+): Promise<{ records: SourceRecord[]; head?: string; branch?: string; dirty: boolean }> {
   const root = await realpath(repository);
   if (!(await isGitRepository(root))) throw new Error(`${repository} is not a Git repository`);
   const listed = await git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"]);
   const tracked = new Set((await git(root, ["ls-files", "-z"])).split("\0").filter(Boolean));
-  const candidates = [...new Set(listed.split("\0").filter(Boolean))].sort();
+  const excludedRoots = await Promise.all((options.excludedRoots ?? []).map(async (candidate) => {
+    const resolved = await realpath(candidate).catch(() => path.resolve(candidate));
+    return resolved === root || resolved.startsWith(`${root}${path.sep}`) ? path.relative(root, resolved) : undefined;
+  }));
+  const excludedRelativeRoots = excludedRoots.filter((candidate): candidate is string => candidate !== undefined);
+  const candidates = [...new Set(listed.split("\0").filter(Boolean))]
+    .filter((relative) => !relative.split("/").includes(".deep-context"))
+    .filter((relative) => !excludedRelativeRoots.some((excluded) => relative === excluded || relative.startsWith(`${excluded}/`)))
+    .sort();
   const records: SourceRecord[] = [];
 
   for (const relative of candidates) {

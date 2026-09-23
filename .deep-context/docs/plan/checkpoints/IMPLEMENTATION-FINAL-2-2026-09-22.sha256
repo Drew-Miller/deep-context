@@ -1,0 +1,14 @@
+# Aggregate of sorted per-file SHA-256 output for `.codex-plugin`, `bin`, `dist`, `skills`, `src`, `templates`, and `tests`:
+d73ba2ed1100354db8828798743bb227e087106b624e97837c6aa5aa64a69299  implementation-and-runtime-files
+
+# Aggregate of SHA-256 output for package.json, pnpm-lock.yaml, pnpm-workspace.yaml, and tsconfig.json:
+0f2a4ce9a49c0ae783d9844b226e08cb9896aa8749b433434493f5f632f28051  package-files
+
+# Verification environment: local macOS source tree, temporary Git fixtures, installed Codex cache, and Aftershock read-only shadow fixture.
+# Installed plugin version: 0.1.0+codex.20260923014150
+# Aftershock HEAD: e8e57ba69e23502d6c58ce6f0cf604fdaf015df9
+# Aftershock pre-existing status fingerprint: 7b275f8fb0a1871841b73a7d3e382571b490e78a9431b7059e9e3565ccdc6b6d
+
+# Reproduce from the source root:
+# find .codex-plugin bin dist skills src templates tests -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256
+# shasum -a 256 package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json | shasum -a 256

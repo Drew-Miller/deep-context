@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deep Init"
+  short_description: "Initialize durable context for a repository or project."
+  default_prompt: "Use $deep-init to initialize this repository with Deep Context."

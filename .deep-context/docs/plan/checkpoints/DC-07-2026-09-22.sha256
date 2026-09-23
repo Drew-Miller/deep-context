@@ -1,0 +1,6 @@
+# DC-07 verified local source checkpoint, 2026-09-22 America/Los_Angeles
+# Git HEAD: 007cc323fa9b1fd153056c18fb6ddd78474c93cf plus uncommitted implementation
+# Aggregate: find .codex-plugin bin dist skills src templates tests -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256
+11e01ce2db028fd2adfdaeb28d74ac5b9961f3f7667a5d8d80f15c7d71631552  implementation-tree-aggregate
+# Aggregate: shasum -a 256 package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json | shasum -a 256
+0f2a4ce9a49c0ae783d9844b226e08cb9896aa8749b433434493f5f632f28051  package-config-aggregate

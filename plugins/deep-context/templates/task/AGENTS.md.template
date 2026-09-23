@@ -1,0 +1,23 @@
+# {{TASK_NAME}} task routing
+
+This is a transient task workspace. Durable project truth must survive its deletion.
+
+## Startup
+
+1. Read `TASK_CONTEXT.md`, `CONTEXT_MANIFEST.md`, and `TASK_STATE.md`.
+2. Read `../../AGENTS.md` and `../../CONTEXT_MAP.md`.
+3. Read `../../repo/AGENTS.md` when present and follow its required source startup route and live schedule. Repository-specific ownership rules remain authoritative.
+4. Read relevant Backlog pitches and Active objectives, then load only the feature, contract, requirement, and Backlog bodies selected by the manifest.
+5. Edit source only within the checkout permitted by the attached repository's instructions.
+
+## Checkpointing
+
+Before pausing, compaction, or handoff, record completed work, evidence, decisions, discoveries awaiting promotion, blockers, questions, and the exact next safe action in `TASK_STATE.md`.
+
+## Expansion
+
+Start undeclared dependencies at contract level. Do not recursively expand dependency context. Update the manifest when evidence requires more context.
+
+## Closure
+
+The task may be destroyed after closure. Promote durable knowledge under `../../doc/`; uncertain future intent belongs in Backlog. Finalization requires an evidence-bound closure review.

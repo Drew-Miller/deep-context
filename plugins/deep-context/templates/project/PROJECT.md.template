@@ -1,0 +1,16 @@
+---
+project_id: {{PROJECT_ID}}
+source_worktree_policy: review-required
+---
+
+# {{PROJECT_NAME}}
+
+Deep Context project-control folder{{REPOSITORY_SUFFIX}}.
+
+## Objective
+
+Describe the durable project objective here.
+
+## Repository
+
+{{REPOSITORY_GUIDANCE}}

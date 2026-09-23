@@ -1,0 +1,43 @@
+# {{PROJECT_NAME}} Context Map
+
+## Read route
+
+`AGENTS.md` → this map → task manifest when applicable → lightweight indexes → selected canonical frontmatter → selected bodies.
+
+## Tree
+
+| Path | Role | Authority |
+|---|---|---|
+| `PROJECT.md` | Project identity and durable overview | Canonical |
+| `doc/ARCHITECTURE.md` | System boundaries and invariants | Canonical |
+| `doc/features/*/FEATURE.md` | Feature context and ownership | Canonical |
+| `doc/features/*/CONTRACTS.md` | Boundary contracts | Canonical |
+| `doc/requirements/*.md` | Atomic accepted requirements | Canonical |
+| `doc/backlog/*.md` | Durable non-binding proposals and elevator pitches | Canonical |
+| `doc/active/*.md` | Accepted objectives and executing tasks | Canonical |
+| `doc/decisions/*.md` | Durable decisions | Canonical |
+| `doc/sources/*.md` | Import provenance and dispositions | Canonical |
+| `doc/FEATURES.md`, `REQUIREMENTS.md`, `BACKLOG.md`, `ACTIVE.md`, `DECISIONS.md`, `REPORTS.md`, `SOURCES.md` | Cheap routing indexes | Generated |
+| `tasks/*` | Active transient execution state | Transient until promoted |
+| `tasks/*/TASK_STATE.md` | Stable task UUID, owner, revision, source binding and next action | Canonical active handoff |
+| `tasks/*/chats/*/MEMORY.md` | Separate notes and association for each chat binding | Canonical active memory |
+| `doc/reports/closures/*.md` | Concise durable closure conclusions | Canonical |
+| `.local/archives/*` | Raw closed task and chat memory | Local archive |
+| `.local/chat-index.json` | Reverse lookup projected from chat records | Generated, local |
+| `.local/state.json` | Resolver and schema state only | Machine-readable, local |
+| `.local/context-operations/*.json` | Recoverable Backlog writes | Local journal |
+
+## Context levels
+
+- `none`: do not load.
+- `contract`: load only the feature boundary contract and selected requirements.
+- `feature`: load the feature definition plus relevant contracts and requirements.
+- `deep`: add decisions and reports associated with the selected feature, without loading unrelated history.
+
+Dependencies do not recursively inherit context levels.
+
+## Loss prevention
+
+Indexes can be deleted and rebuilt from canonical files. Closure must classify and promote durable task discoveries before finalization. If classification is uncertain, preserve the information as a Backlog item or unresolved closure finding.
+
+Memory need not own a checkout. Source modes are none, read-only, isolated, and existing. Only a clean, explicitly Deep Context-owned worktree is eligible for cleanup; borrowed checkouts and source branches are retained. Shared task changes require the owner binding and expected state revision. Interrupted writes are reported for explicit repair-tasks; read-only resolution never repairs or guesses.

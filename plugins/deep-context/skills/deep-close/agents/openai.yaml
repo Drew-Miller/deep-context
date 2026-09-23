@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deep Close"
+  short_description: "Review and safely close evidence-bound task memory."
+  default_prompt: "Use $deep-close to review and close this Deep Context task."

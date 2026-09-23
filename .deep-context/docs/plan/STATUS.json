@@ -1,0 +1,96 @@
+{
+  "contract_version": 1,
+  "ledger_revision": "deep-context-state-10",
+  "objective": "Deliver a validated local Deep Context plugin whose filesystem context survives chat loss and is selectively readable by fresh agents.",
+  "checkpoint": "DC-10 package verified: 62 tests, build, validators, isolated lifecycle, reproducible bundle. Source provenance refresh and desktop acceptance remain open.",
+  "next_safe_action": "Commit reviewed staged files and push main without force; verify remote package. User then installs and refreshes existing context.",
+  "tasks": [
+    {
+      "id": "DC-01",
+      "state": "accepted"
+    },
+    {
+      "id": "DC-02",
+      "state": "accepted"
+    },
+    {
+      "id": "DC-03",
+      "state": "accepted"
+    },
+    {
+      "id": "DC-04",
+      "state": "accepted"
+    },
+    {
+      "id": "DC-05",
+      "state": "accepted"
+    },
+    {
+      "id": "DC-06",
+      "state": "accepted"
+    },
+    {
+      "id": "DC-07",
+      "state": "accepted",
+      "shelf": [
+        "SHELF-0003",
+        "SHELF-0004",
+        "SHELF-0005",
+        "SHELF-0006",
+        "SHELF-0007",
+        "SHELF-0008",
+        "SHELF-0009",
+        "SHELF-0010",
+        "SHELF-0011"
+      ]
+    },
+    {
+      "id": "DC-08",
+      "state": "awaiting-desktop-verification",
+      "discovery": "complete",
+      "implementation": "installed",
+      "automated_tests": 44,
+      "plugin_version": "0.1.0+codex.20260923161435",
+      "evidence": "doc/reports/DC-08-IMPLEMENTATION.md",
+      "shelf": [
+        "SHELF-0012"
+      ],
+      "requirements": [
+        "REQ-DC-026",
+        "REQ-DC-027",
+        "REQ-DC-028",
+        "REQ-DC-029",
+        "REQ-DC-030",
+        "REQ-DC-031"
+      ],
+      "plan": "docs/plan/DC-08-CHAT-TASK-PLAN.md"
+    },
+    {
+      "id": "DC-09",
+      "state": "awaiting-desktop-verification",
+      "automated_tests": 50,
+      "plugin_version": "0.1.0+codex.20260923174315",
+      "decision": "DEC-DC-002",
+      "requirements": [
+        "REQ-DC-032",
+        "REQ-DC-033",
+        "REQ-DC-034",
+        "REQ-DC-035",
+        "REQ-DC-036",
+        "REQ-DC-037",
+        "REQ-DC-038"
+      ],
+      "evidence": "doc/reports/DC-09-IMPLEMENTATION.md"
+    },
+    {
+      "id": "DC-10",
+      "state": "verified-pending-publication",
+      "authorization": "implement, commit, push main; no installation or live reinitialization",
+      "automated_tests": 62,
+      "evidence": "doc/reports/DC-10-PACKAGING.md",
+      "source_checkpoint": "docs/plan/checkpoints/DC-10-2026-09-23.sha256",
+      "desktop_verification": "open",
+      "context_validation": "source-provenance-refresh-required"
+    }
+  ]
+}

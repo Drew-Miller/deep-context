@@ -1,0 +1,41 @@
+---
+task: {{TASK_NAME}}
+context_version: 1
+features:{{FEATURES_YAML}}
+requirements: []
+backlog_awareness:
+  mode: metadata
+project_context:
+  planning_runs: 0
+  recommended_max_planning_runs: 1
+  closure_required: true
+---
+
+# Context Manifest
+
+## Always Load
+
+- ../../AGENTS.md
+- ../../CONTEXT_MAP.md
+- TASK_CONTEXT.md
+- TASK_STATE.md
+- ../../doc/FEATURES.md
+- ../../doc/REQUIREMENTS.md
+- ../../doc/DECISIONS.md
+- ../../doc/REPORTS.md
+- relevant pitches from ../../doc/BACKLOG.md
+- relevant objectives from ../../doc/ACTIVE.md
+
+## Selected Feature Context
+
+{{SELECTED_FILES}}
+
+## Selection
+
+Load canonical bodies only when selected here or justified by changed code. Feature context includes explicitly listed requirements and requirements owned by that feature. Deep context adds only decisions and reports associated with selected features. Dependencies do not recursively inherit context levels.
+
+## Do Not Load by Default
+
+- unrelated feature bodies
+- every requirement or Backlog body
+- all decisions or source history

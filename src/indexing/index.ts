@@ -21,22 +21,41 @@ function cell(value: unknown): string {
   return String(value ?? "—").replaceAll("|", "\\|").replaceAll("\n", " ");
 }
 
-async function records(directory: string, accept?: (file: string) => boolean): Promise<Array<{ relative: string; data: Record<string, unknown> }>> {
+async function records(directory: string, accept?: (file: string) => boolean): Promise<Array<{ relative: string; data: Record<string, unknown>; body: string }>> {
   const root = path.dirname(directory);
   const files = (await markdownFiles(directory)).filter((file) => !accept || accept(file));
-  return Promise.all(files.map(async (file) => ({ relative: path.relative(root, file), data: parseMarkdown(await readText(file)).data })));
+  return Promise.all(files.map(async (file) => {
+    const document = parseMarkdown(await readText(file));
+    return { relative: path.relative(root, file), data: document.data, body: document.body };
+  }));
+}
+
+function legacyReportMetadata(relative: string, body: string): Record<string, unknown> {
+  const heading = body.match(/^#\s+(.+)$/m)?.[1]?.trim();
+  return {
+    id: `REPORT-${relative.replace(new RegExp(`^reports\\${path.sep}`), "").replace(/\.md$/, "").replaceAll(path.sep, "-").replace(/[^A-Za-z0-9-]/g, "-").toUpperCase()}`,
+    title: heading || path.basename(relative, ".md"),
+    status: "unclassified",
+    features: [],
+  };
 }
 
 export async function buildIndexes(projectRoot: string): Promise<Map<string, string>> {
   const doc = path.join(projectRoot, "doc");
   const features = await records(path.join(doc, "features"), (file) => path.basename(file) === "FEATURE.md");
   const requirements = await records(path.join(doc, "requirements"));
-  const shelf = await records(path.join(doc, "shelf"));
+  const backlog = await records(path.join(doc, "backlog"));
+  const active = await records(path.join(doc, "active"));
+  const decisions = (await records(path.join(doc, "decisions"))).filter(({ data }) => typeof data.id === "string");
+  const reports = (await records(path.join(doc, "reports"))).map(({ relative, data, body }) => ({ relative, data: typeof data.id === "string" ? data : legacyReportMetadata(relative, body) }));
   const sources = await records(path.join(doc, "sources"));
   return new Map([
     [path.join(doc, "FEATURES.md"), render("Feature Registry", ["Feature", "Purpose", "Ownership", "Dependencies", "Context"], features.map(({ relative, data }) => [data.name, data.description, data.owns, data.depends_on, relative]))],
     [path.join(doc, "REQUIREMENTS.md"), render("Requirement Registry", ["ID", "Requirement", "Feature", "Status", "Context"], requirements.map(({ relative, data }) => [data.id, data.title, data.feature, data.status, relative]))],
-    [path.join(doc, "SHELF.md"), render("Shelf Registry", ["ID", "Thought", "Type", "Features", "Status", "Context"], shelf.map(({ relative, data }) => [data.id, data.title, data.type, data.features, data.status, relative]))],
+    [path.join(doc, "BACKLOG.md"), render("Backlog Registry", ["ID", "Proposal", "Elevator pitch", "Status", "Features", "Related", "Conflicts", "Context"], backlog.map(({ relative, data }) => [data.id, data.title, data.pitch, data.status, data.features, data.related, data.conflicts, relative]))],
+    [path.join(doc, "ACTIVE.md"), render("Active Work Registry", ["ID", "Objective", "Status", "Features", "Backlog", "Tasks", "Context"], active.map(({ relative, data }) => [data.id, data.objective, data.status, data.features, data.backlog, data.tasks, relative]))],
+    [path.join(doc, "DECISIONS.md"), render("Decision Registry", ["ID", "Decision", "Status", "Features", "Context"], decisions.map(({ relative, data }) => [data.id, data.title, data.status, data.features, relative]))],
+    [path.join(doc, "REPORTS.md"), render("Report Registry", ["ID", "Report", "Status", "Features", "Context"], reports.map(({ relative, data }) => [data.id, data.title, data.status, data.features, relative]))],
     [path.join(doc, "SOURCES.md"), render("Source Provenance Registry", ["ID", "Path", "Kind", "Tracking", "Disposition", "Reason", "Record"], sources.map(({ relative, data }) => [data.id, data.path, data.kind, data.tracking, data.disposition, data.reason, relative]))],
   ]);
 }

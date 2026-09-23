@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deep Task"
+  short_description: "Start or continue durable task memory for this chat."
+  default_prompt: "Use $deep-task to start or continue this work with durable task context."

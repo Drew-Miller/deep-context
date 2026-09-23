@@ -26,14 +26,47 @@ export const requirementSchema = z.object({
   code_patterns: stringList.optional(),
 }).passthrough();
 
+export const backlogSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  pitch: z.string().min(1),
+  status: z.enum(["proposed", "planned", "active", "done", "deferred", "superseded"]),
+  features: stringList,
+  tokens: stringList,
+  provenance: z.string().min(1),
+  related: stringList,
+  conflicts: stringList,
+}).passthrough();
+
+// External-format projects remain readable until their Shelf records are migrated.
 export const shelfSchema = z.object({
+  id: z.string().min(1), title: z.string().min(1), status: z.string().min(1),
+  type: z.string().min(1), features: stringList, tokens: stringList,
+  consideration: z.literal("light").default("light"),
+}).passthrough();
+
+export const activeSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  objective: z.string().min(1),
+  status: z.enum(["active", "done", "superseded"]),
+  features: stringList,
+  backlog: stringList,
+  tasks: stringList,
+}).passthrough();
+
+export const decisionSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   status: z.string().min(1),
-  type: z.string().min(1),
   features: stringList,
-  tokens: stringList,
-  consideration: z.literal("light").default("light"),
+}).passthrough();
+
+export const reportSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  status: z.string().min(1),
+  features: stringList,
 }).passthrough();
 
 export const sourceSchema = z.object({

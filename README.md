@@ -31,8 +31,8 @@ Long-running projects have two failure modes: important decisions vanish with a 
 
 ## What it includes
 
-- A deterministic CLI to configure a control home, initialize projects, rebuild indexes, validate context, and manage task lifecycle.
-- Four Codex skills: setup, project initialization, scoped task creation, and evidence-bound task closure.
+- A deterministic CLI for repository storage, indexes, validation, migration, and task lifecycle. Maintenance commands are agent tooling.
+- Three user-facing Codex skills: `deep-init`, `deep-task`, and `deep-close`.
 - A Git-worktree workflow that keeps task work isolated while preserving source-repository ownership.
 - Generated routing indexes that are cheap to read and safe to rebuild.
 
@@ -40,37 +40,39 @@ Long-running projects have two failure modes: important decisions vanish with a 
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) 18.18 or later
-- [pnpm](https://pnpm.io/)
+- [Node.js](https://nodejs.org/) 20 or later
 - Git, for repository-backed projects and task worktrees
 
-### Install from this repository
+### Install from the marketplace
 
 ```bash
-git clone <your-fork-or-clone-url> deep-context
-cd deep-context
-pnpm install
-pnpm build
+codex plugin marketplace add Drew-Miller/deep-context
+codex plugin add deep-context@deep-context-repo
 ```
 
-The build produces the bundled CLI at `dist/cli.mjs`. Confirm that it is ready:
+The marketplace installs only `plugins/deep-context/`, including its committed, self-contained CLI. Installation requires no pnpm, build, or dependency download. Source, tests, development dependencies, Git metadata, and project memory remain outside the package. Skills are plugin-scoped; no copies are installed into managed projects.
+
+Git pushes do not automatically replace an installed plugin snapshot. After pushing an update, refresh the marketplace and reinstall or refresh the plugin, then start a new Codex task:
 
 ```bash
-node bin/deep-context.cjs --help
+codex plugin marketplace upgrade deep-context-repo
+codex plugin add deep-context@deep-context-repo
 ```
 
-### Configure a Deep Context home
+During local development, point a local marketplace at `plugins/deep-context/`; use the plugin cachebuster and reinstall flow to test unpushed changes. Do not maintain duplicate per-project copies of the skills.
 
-Choose a directory outside the repositories you will manage. The CLI records the location locally and adds a small, marker-delimited routing block to Codex's global `AGENTS.md`.
+### Optional legacy home configuration
+
+New repository projects store context inside the primary checkout. A separate home is only needed for empty projects and legacy external-home compatibility.
 
 ```bash
-node bin/deep-context.cjs setup --home "$HOME/Developer/Deep Context"
+node plugins/deep-context/bin/deep-context.cjs setup --home "$HOME/Developer/Deep Context"
 ```
 
 For a different global instruction file, pass it explicitly:
 
 ```bash
-node bin/deep-context.cjs setup \
+node plugins/deep-context/bin/deep-context.cjs setup \
   --home "$HOME/Developer/Deep Context" \
   --agents /path/to/AGENTS.md
 ```
@@ -82,31 +84,35 @@ node bin/deep-context.cjs setup \
 For an existing Git repository:
 
 ```bash
-node /path/to/deep-context/bin/deep-context.cjs init --repo /path/to/repository
+node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs init --repo /path/to/repository
 ```
 
 For a new, empty context project:
 
 ```bash
-node /path/to/deep-context/bin/deep-context.cjs init --empty --name my-project
+node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs init --empty --name my-project
 ```
 
-Initialization creates a self-describing project tree. When attached to an existing repository, it inventories source evidence but does not modify that repository.
+Initialization creates `<primary-checkout>/.deep-context/` and installs a marker-delimited route in the repository root `AGENTS.md`. It preserves existing source instructions and does not stage or commit. Import inventory does not include context storage.
 
 ```text
-my-project/
-├── AGENTS.md                 # Routing rules for agents
-├── CONTEXT_MAP.md            # Lightweight map of available knowledge
-├── PROJECT.md                # Product boundary and durable overview
-├── doc/
-│   ├── ARCHITECTURE.md
-│   ├── features/             # Feature definitions and contracts
-│   ├── requirements/         # Atomic accepted requirements
-│   ├── decisions/            # Durable decisions
-│   ├── sources/              # Import provenance
-│   └── shelf/                # Non-binding future intent
-├── tasks/                    # Scoped, checkpointable task records
-└── repo → /path/to/source    # Present for repository-backed projects
+repository/
+├── AGENTS.md                 # Source instructions plus managed route
+└── .deep-context/
+    ├── AGENTS.md             # Context routing
+    ├── CONTEXT_MAP.md        # Lightweight knowledge map
+    ├── PROJECT.md            # Durable overview
+    ├── doc/
+    │   ├── ARCHITECTURE.md
+    │   ├── features/             # Feature definitions and contracts
+    │   ├── requirements/         # Atomic accepted requirements
+    │   ├── decisions/            # Durable decisions
+    │   ├── sources/              # Import provenance
+    │   ├── backlog/              # Proposals with elevator pitches
+    │   └── active/               # Accepted work objectives
+    ├── tasks/                # Local task and chat memory
+    ├── .local/               # Local state, journals, raw archives
+    └── repo → /path/to/source
 ```
 
 ### 2. Add durable project knowledge
@@ -118,48 +124,62 @@ Open the generated `AGENTS.md` and `CONTEXT_MAP.md` first. Then promote confirme
 - decisions that should outlive a task
 - source dispositions and unresolved future intent
 
-Refresh the generated indexes and check the project whenever canonical files change:
+The agent refreshes indexes and validates changed context as part of normal work. These maintenance commands are available for diagnosis:
 
 ```bash
-node /path/to/deep-context/bin/deep-context.cjs rebuild-indexes --project /path/to/my-project
-node /path/to/deep-context/bin/deep-context.cjs validate --project /path/to/my-project
+node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs rebuild-indexes --project /path/to/my-project
+node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs validate --project /path/to/my-project
 ```
 
-### 3. Create a scoped task
+### 3. Start or resume task memory
 
-Create a task from the control project. For repository-backed projects, the CLI creates a dedicated Git worktree and branch.
+Use `deep-task` in a Codex Project chat. Describe new work or name an existing task to continue. The skill derives a task name, associates the chat when runtime identity is available, and reads only selected context. An unbound chat stays at project scope. The agent captures useful decisions, discoveries, blockers, evidence, and future ideas during work.
 
 ```bash
-node /path/to/deep-context/bin/deep-context.cjs create-task add-export \
-  --project /path/to/my-project \
-  --feature routing \
-  --description "Add an export flow with validation."
+node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs start-task \
+  --project /path/to/repository/.deep-context \
+  --description "Add an export flow with validation." \
+  --chat-id <runtime-chat-id> \
+  --json
 ```
 
-Before beginning implementation, fill in the generated `TASK_CONTEXT.md` and select only the feature context and direct dependencies required by the work. Make code changes only inside the task’s `worktree/` directory.
+When runtime chat identity is missing, use the returned task path and binding ID explicitly. A later chat may continue a named task; transferring active ownership requires authorization.
 
-Checkpoint meaningful progress before a pause, handoff, or context reset:
+Task memory alone does not authorize source edits. Before source work, explicitly attach the permitted mode and path through `attach-source`; the command records source ownership and checks the saved revision.
+
+The agent checkpoints before a pause, handoff, long operation, or completion. The CLI operation remains available to the agent:
 
 ```bash
-node /path/to/deep-context/bin/deep-context.cjs checkpoint-task add-export \
-  --project /path/to/my-project \
-  --next-action "Run the focused routing tests and review the diff."
+node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs save-task <task-id-or-path> \
+  --project /path/to/repository/.deep-context \
+  --next-action "Run the focused routing tests and review the diff." \
+  --note "Export validation is implemented; focused tests remain." \
+  --expected-revision <state-revision> \
+  --binding-id <binding-id> \
+  --chat-id <runtime-chat-id> \
+  --json
 ```
 
 ### 4. Review and close the task
 
-Closure is deliberately a two-step process. First create a closure review tied to the current evidence:
+Use `deep-close` to review, promote durable knowledge, and finalize eligible cleanup. The agent performs the two CLI stages below; unresolved findings or cleanup blockers are surfaced rather than bypassed.
 
 ```bash
-node /path/to/deep-context/bin/deep-context.cjs close-task add-export \
-  --project /path/to/my-project
+node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs close-task <task-id-or-path> \
+  --project /path/to/repository/.deep-context \
+  --chat-id <runtime-chat-id> \
+  --binding-id <binding-id> \
+  --expected-revision <state-revision>
 ```
 
 Review the task record, final diff, and only the relevant canonical context. Promote durable findings, rebuild indexes, validate the project, and generate a fresh review after those edits. Once the review is approved and the evidence is unchanged, finalization archives task context and removes its worktree without committing, merging, pushing, or deploying:
 
 ```bash
-node /path/to/deep-context/bin/deep-context.cjs close-task add-export \
-  --project /path/to/my-project \
+node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs close-task <task-id-or-path> \
+  --project /path/to/repository/.deep-context \
+  --chat-id <runtime-chat-id> \
+  --binding-id <binding-id> \
+  --expected-revision <state-revision> \
   --finalize
 ```
 
@@ -170,29 +190,45 @@ node /path/to/deep-context/bin/deep-context.cjs close-task add-export \
 | `setup --home <path>` | Configure the local control home and global routing instructions |
 | `init --repo <path>` | Create a project control tree attached to an existing Git repository |
 | `init --empty --name <name>` | Create an empty project control tree |
+| `migrate-project <old-path> --repo <path>` | Validate in-repo copy, keep a dated backup, and redirect the old home |
+| `capture-backlog --title --pitch --provenance` | Save a non-binding proposal with an elevator pitch |
+| `activate-backlog <id> --objective <text>` | Accept an objective after checking related and opposing work |
+| `repair-context` | Recover an interrupted Backlog write when no intervening edit conflicts |
 | `rebuild-indexes` | Regenerate lightweight routing indexes |
 | `validate` | Check project structure, schemas, references, and indexes |
+| `start-task --description <text>` | Create explicit task memory and optionally bind the current chat |
+| `resolve-task --task <id-or-path>` | Inspect an explicit task selection without changing it |
+| `repair-tasks` | Recover interrupted task writes; refuses conflicting notes |
+| `register-project <path>` | Rebuild an external-home repository association |
+| `resume-task <id-or-path>` | Resume task memory; `--takeover` transfers an active owner explicitly |
+| `save-task <id-or-path>` | Save chat notes and a revision-guarded checkpoint |
+| `attach-source <id-or-path>` | Explicitly attach an allowed source execution mode and path |
 | `create-task <name>` | Create a scoped task record and Git worktree |
 | `checkpoint-task <name>` | Persist task state and its next safe action |
 | `close-task <name>` | Prepare an evidence-bound closure review |
 | `close-task <name> --finalize` | Archive an approved, unchanged task and remove its worktree |
 
-Run `node bin/deep-context.cjs <command> --help` for command-specific options.
+The public skills are only `deep-init`, `deep-task`, and `deep-close`. Setup, save, resume, checkpoint, index, and closure subcommands remain agent tooling and compatibility interfaces. Durable `doc/` files and generated indexes are trackable; `tasks/`, `.local/`, and `repo` stay local. All worktrees resolve the primary checkout's context.
 
 ## Development
+
+Development requires [pnpm](https://pnpm.io/). Clone this repository and run `pnpm install` first.
 
 ```bash
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm check:package
 ```
 
-The project uses TypeScript, Vitest, and pnpm. The plugin metadata lives in `.codex-plugin/plugin.json`; the skills it exposes live under `skills/`.
+The project uses TypeScript, Vitest, and pnpm. The plugin metadata lives in `plugins/deep-context/.codex-plugin/plugin.json`; the skills it exposes live under `plugins/deep-context/skills/`.
 
 ## Safety model
 
 Deep Context is designed to preserve repository ownership and make cleanup intentional:
 
-- Project initialization inventories attached repositories without changing them.
+- Import inventory is read-only; explicit initialization may install the requested source startup route.
 - Task creation rejects unsafe or ambiguous worktree and branch states.
 - Closure finalization checks that approved evidence has not changed.
+
+The legacy `templates/project/PROJECT_CONTEXT_AGENT.md.template` inside the package is retained only for exact-match recognition and removal of older generated agents. It is not installed as reusable project behavior.

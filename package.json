@@ -4,17 +4,18 @@
   "private": true,
   "type": "module",
   "bin": {
-    "deep-context": "./bin/deep-context.cjs"
+    "deep-context": "./plugins/deep-context/bin/deep-context.cjs"
   },
   "scripts": {
-    "build": "pnpm typecheck && pnpm clean && esbuild src/cli/main.ts --bundle --platform=node --format=esm --target=node18 --banner:js=\"import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);\" --outfile=dist/cli.mjs",
-    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "pnpm typecheck && pnpm clean && esbuild src/cli/main.ts --bundle --platform=node --format=esm --target=node20 --banner:js=\"import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);\" --outfile=plugins/deep-context/dist/cli.mjs",
+    "clean": "node -e \"require('node:fs').rmSync('plugins/deep-context/dist', { recursive: true, force: true })\"",
     "dev": "tsx src/cli/main.ts",
-    "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "test": "vitest run --exclude '**/.deep-context/**'",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check:package": "node tooling/check-package.mjs"
   },
   "engines": {
-    "node": ">=18.18"
+    "node": ">=20"
   },
   "dependencies": {
     "commander": "^14.0.1",

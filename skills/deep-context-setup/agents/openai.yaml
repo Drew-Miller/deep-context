@@ -1,4 +1,0 @@
-interface:
-  display_name: Deep Context Setup
-  short_description: Configure durable context storage.
-  default_prompt: Set up Deep Context on this machine.

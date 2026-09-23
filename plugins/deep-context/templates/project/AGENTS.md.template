@@ -1,0 +1,22 @@
+# {{PROJECT_NAME}} Deep Context routing
+
+This project stores durable context in human-readable files. Chats and active context windows are disposable.
+
+## Startup
+
+1. Read `CONTEXT_MAP.md`.
+2. Read `START_HERE.md` when present; follow its live ledger and status route before acting.
+3. When a repository is attached, read `repo/AGENTS.md` if present and follow its required source reads, live schedule, and ownership constraints.
+4. If inside `tasks/<task>/`, read the task's `AGENTS.md`, `TASK_CONTEXT.md`, `CONTEXT_MANIFEST.md`, and `TASK_STATE.md`.
+5. Read the generated indexes in `doc/` to select canonical files, including decisions and reports when deep context is needed.
+6. Read only relevant canonical bodies. Deep context includes only decisions and reports associated with the selected feature; do not recursively load `doc/`.
+
+For every project chat, resolve its existing association through the bundled CLI (`resolve-task --project <this context root>`, using CODEX_THREAD_ID when available). Read returned requiredReads. An unbound chat stays at project scope until the user invokes deep-task; never choose the newest task. Without runtime identity, use an explicit task path and binding ID. Checkpoint useful decisions, discoveries, blockers, evidence, objective changes, and future ideas during work and before handoff or long operations. Refresh affected indexes and validate the changed context.
+
+## Preservation
+
+Write durable architecture, contracts, requirements, decisions, or future intent under `doc/`, even if no task is active. Capture future ideas as atomic Backlog records with an elevator pitch. Read `doc/BACKLOG.md` and `doc/ACTIVE.md` at planning or scope changes; explicitly resolve opposing intent before accepting a plan. Checkpoint active work before ending or handing off. Task folders are disposable only after deep-close promotes durable knowledge.
+
+## Authority
+
+Architecture, accepted requirements, and contracts outrank active task criteria; accepted active work outranks Backlog proposals; Backlog intent outranks speculation. Existing repository-specific routing and live schedules retain their declared authority.

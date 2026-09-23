@@ -8,9 +8,7 @@ function templateRoot(): string {
   const candidates = [
     process.env.DEEP_CONTEXT_TEMPLATE_ROOT,
     path.resolve(moduleDirectory, "../templates"),
-    path.resolve(moduleDirectory, "../../templates"),
-    path.resolve(moduleDirectory, "../../../templates"),
-    path.resolve(process.cwd(), "templates"),
+    path.resolve(moduleDirectory, "../../plugins/deep-context/templates"),
   ].filter((candidate): candidate is string => Boolean(candidate));
   const root = candidates.find((candidate) => existsSync(candidate));
   if (!root) throw new Error("Deep Context templates directory could not be resolved");

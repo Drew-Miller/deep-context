@@ -6,17 +6,25 @@ import { parseMarkdown, renderMarkdown } from "../frontmatter/index.js";
 import { selectFeatureContext } from "../routing/index.js";
 import { normalizeTaskName } from "../core/names.js";
 import { contextManifest, taskAgents, taskContext, taskState } from "./templateFiles.js";
+import { machineStatePath } from "../projects/index.js";
 
 async function repositoryFor(projectRoot: string): Promise<string> {
-  const state = JSON.parse(await readText(path.join(projectRoot, ".deep-context", "state.json"))) as ProjectState;
+  const state = JSON.parse(await readText(await machineStatePath(projectRoot))) as ProjectState;
   if (!state.repositoryPath) throw new Error("This project has no attached source repository");
   if (!(await isGitRepository(state.repositoryPath))) throw new Error(`Attached source is not a Git repository: ${state.repositoryPath}`);
   return state.repositoryPath;
 }
 
-export async function createTask(projectRoot: string, rawName: string, options: { base?: string; branch?: string; feature?: string; description?: string }): Promise<string> {
+export async function createTask(projectRoot: string, rawName: string, options: { base?: string; branch?: string; feature?: string; description?: string; sourceRulesReviewed?: boolean }): Promise<string> {
   const name = normalizeTaskName(rawName);
   const repository = await repositoryFor(projectRoot);
+  const overview = parseMarkdown(await readText(path.join(projectRoot, "PROJECT.md"))).data;
+  const policy = overview.source_worktree_policy;
+  if (policy !== undefined && !["allowed", "review-required", "prohibited"].includes(String(policy))) throw new Error(`Unknown source worktree policy: ${String(policy)}`);
+  if (policy === "prohibited") throw new Error("The attached source repository prohibits another editable worktree");
+  if ((policy === "review-required" || (policy === undefined && await exists(path.join(repository, "AGENTS.md")))) && !options.sourceRulesReviewed) {
+    throw new Error("Read the attached repository instructions and pass --source-rules-reviewed before creating a task worktree");
+  }
   const head = await currentHead(repository);
   if (!head) throw new Error("Task worktrees require a source repository with at least one commit");
   const attachedBranch = await currentBranch(repository);
@@ -31,7 +39,7 @@ export async function createTask(projectRoot: string, rawName: string, options: 
 
   if (await exists(statePath)) {
     const existing = parseMarkdown(await readText(statePath)).data;
-    if (existing.branch !== branch || path.resolve(taskRoot, String(existing.worktree ?? "")) !== worktree) throw new Error(`Existing task ${name} has different branch/worktree identity`);
+    if (existing.task !== name || existing.branch !== branch || path.resolve(taskRoot, String(existing.worktree ?? "")) !== worktree || !(await exists(worktree))) throw new Error(`Existing task ${name} has different branch/worktree identity`);
     return taskRoot;
   }
 
