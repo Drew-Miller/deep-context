@@ -1,0 +1,20 @@
+import { renderTemplate } from "../core/template.js";
+
+export function projectAgents(name: string): string {
+  return renderTemplate("project/AGENTS.md.template", { PROJECT_NAME: name });
+}
+
+export function contextMap(name: string): string {
+  return renderTemplate("project/CONTEXT_MAP.md.template", { PROJECT_NAME: name });
+}
+
+export function projectOverview(name: string, repository?: string): string {
+  return renderTemplate("project/PROJECT.md.template", {
+    PROJECT_NAME: name,
+    REPOSITORY_SUFFIX: repository ? " for the source repository resolved through `repo/`" : "",
+    REPOSITORY_GUIDANCE: repository ? "Use `repo/` as the stable source path. Machine-specific paths belong only in `.deep-context/state.json` and the symlink target." : "No source repository is attached yet.",
+  });
+}
+
+export const architectureTemplate = renderTemplate("project/ARCHITECTURE.md.template", {});
+export const projectContextAgent = renderTemplate("project/PROJECT_CONTEXT_AGENT.md.template", {});

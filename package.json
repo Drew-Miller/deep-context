@@ -1,0 +1,32 @@
+{
+  "name": "deep-context",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "deep-context": "./bin/deep-context.cjs"
+  },
+  "scripts": {
+    "build": "pnpm typecheck && pnpm clean && esbuild src/cli/main.ts --bundle --platform=node --format=esm --target=node18 --banner:js=\"import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);\" --outfile=dist/cli.mjs",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "dev": "tsx src/cli/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=18.18"
+  },
+  "dependencies": {
+    "commander": "^14.0.1",
+    "yaml": "^2.8.1",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "packageManager": "pnpm@11.25.0"
+}

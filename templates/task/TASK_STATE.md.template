@@ -1,0 +1,40 @@
+---
+task: {{TASK_NAME}}
+status: active
+branch: {{BRANCH}}
+base_ref: {{BASE_REF}}
+base_commit: {{BASE_COMMIT}}
+worktree: ./worktree
+source_checkpoint: {{BASE_COMMIT}}
+updated_at: {{TIMESTAMP}}
+---
+
+# Task State
+
+## Objective and Acceptance
+
+See `TASK_CONTEXT.md`.
+
+## Completed Work and Evidence
+
+- None yet.
+
+## Active Work and Blockers
+
+- Ready to begin.
+
+## Decisions and Discoveries Awaiting Promotion
+
+- None.
+
+## Open Questions
+
+- None.
+
+## Exact Next Safe Action
+
+Inspect the scoped context and source paths before editing.
+
+## Checkpoints
+
+- Created at {{TIMESTAMP}} from {{BASE_COMMIT}}.

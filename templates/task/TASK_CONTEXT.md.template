@@ -1,0 +1,23 @@
+---
+task: {{TASK_NAME}}
+status: active
+created_from: {{BASE_REF}}
+{{PRIMARY_FEATURE_LINE}}---
+
+# Task
+
+## Goal
+
+{{DESCRIPTION}}
+
+## Acceptance Criteria
+
+- Define observable completion criteria.
+
+## Constraints
+
+- Preserve durable context in canonical project files.
+
+## Out of Scope
+
+- Unrelated feature changes.

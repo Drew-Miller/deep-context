@@ -1,0 +1,4 @@
+interface:
+  display_name: Close Deep Context Task
+  short_description: Reconcile context and safely finalize a task.
+  default_prompt: Run the Drift Chamber for this Deep Context task.

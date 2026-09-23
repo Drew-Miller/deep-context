@@ -1,0 +1,22 @@
+# {{TASK_NAME}} task routing
+
+This is a transient task workspace. Durable project truth must survive its deletion.
+
+## Startup
+
+1. Read `TASK_CONTEXT.md`, `CONTEXT_MANIFEST.md`, and `TASK_STATE.md`.
+2. Read `../../AGENTS.md` and `../../CONTEXT_MAP.md`.
+3. Load only the feature, contract, requirement, and Shelf files selected by the manifest.
+4. Inspect and edit source only inside `worktree/`.
+
+## Checkpointing
+
+Before pausing, compaction, or handoff, record completed work, evidence, decisions, discoveries awaiting promotion, blockers, questions, and the exact next safe action in `TASK_STATE.md`.
+
+## Expansion
+
+Start undeclared dependencies at contract level. Do not recursively expand dependency context. Update the manifest when evidence requires more context.
+
+## Closure
+
+The task may be destroyed after closure. Promote durable knowledge under `../../doc/`; uncertain future intent belongs on the Shelf. Finalization requires an evidence-bound closure review.

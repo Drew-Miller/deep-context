@@ -1,0 +1,4 @@
+interface:
+  display_name: Initialize Deep Context
+  short_description: Bootstrap selective durable project context.
+  default_prompt: Initialize this repository with Deep Context.

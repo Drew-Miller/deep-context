@@ -1,0 +1,4 @@
+interface:
+  display_name: Create Deep Context Task
+  short_description: Create scoped worktree-backed task context.
+  default_prompt: Create a scoped Deep Context task for this work.
