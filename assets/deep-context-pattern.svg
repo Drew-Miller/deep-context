@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 180" preserveAspectRatio="none" role="img" aria-label="Deep Context layered line pattern">
+  <rect width="1440" height="180" fill="#0F172A"/>
+  <g fill="none" stroke-linecap="round">
+    <path d="M-30 136C165 60 310 206 512 118S878 28 1050 104s270 10 420-62" stroke="#2563EB" stroke-opacity=".75" stroke-width="2"/>
+    <path d="M-30 150C168 74 300 220 510 132S878 42 1046 118s280 12 424-56" stroke="#60A5FA" stroke-opacity=".45" stroke-width="2"/>
+    <path d="M-30 122C164 46 315 192 514 104S878 14 1054 90s266 9 416-68" stroke="#A78BFA" stroke-opacity=".65" stroke-width="2"/>
+    <path d="M-30 164C165 88 305 234 508 146S878 56 1042 132s282 14 428-50" stroke="#C4B5FD" stroke-opacity=".28" stroke-width="2"/>
+  </g>
+  <g fill="#F8FAFC">
+    <circle cx="512" cy="118" r="4"/><circle cx="1050" cy="104" r="4"/>
+  </g>
+</svg>

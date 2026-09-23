@@ -1,4 +1,10 @@
+<p align="center">
+  <img src="assets/deep-context-pattern.svg" alt="Deep Context layered line pattern" width="100%" />
+</p>
+
 <div align="center">
+
+<img src="assets/deep-context-mark.svg" alt="Deep Context mark: three nested layers around a focused center" width="92" />
 
 # Deep Context
 
@@ -6,11 +12,9 @@
 
 Keep the knowledge that matters in a clear filesystem structure, so a project can survive handoffs, task switches, and context compaction without turning every prompt into a data dump.
 
-`TypeScript` · `Codex plugin` · `Git worktrees` · `Evidence-bound closure`
+<sub>Codex plugin · Git worktrees · Evidence-bound closure</sub>
 
 </div>
-
-<br />
 
 > **Deep Context makes project knowledge recoverable.** It creates a human-readable control tree for architecture, requirements, decisions, source provenance, and scoped task state. Agents load only the context relevant to the work at hand.
 
