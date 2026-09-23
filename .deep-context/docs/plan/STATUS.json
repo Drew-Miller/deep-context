@@ -2,8 +2,8 @@
   "contract_version": 1,
   "ledger_revision": "deep-context-state-10",
   "objective": "Deliver a validated local Deep Context plugin whose filesystem context survives chat loss and is selectively readable by fresh agents.",
-  "checkpoint": "DC-10 package verified: 62 tests, build, validators, isolated lifecycle, reproducible bundle. Source provenance refresh and desktop acceptance remain open.",
-  "next_safe_action": "Commit reviewed staged files and push main without force; verify remote package. User then installs and refreshes existing context.",
+  "checkpoint": "DC-10 published and remote verified; 62 tests, build, validators, isolated lifecycle and reproducible bundle passed. Source provenance refresh and desktop acceptance remain open.",
+  "next_safe_action": "User installs the published repository marketplace plugin, removes the old personal copy after success, opens a fresh task, and runs deep-init to refresh existing repository context. Record desktop acceptance separately.",
   "tasks": [
     {
       "id": "DC-01",
@@ -84,13 +84,16 @@
     },
     {
       "id": "DC-10",
-      "state": "verified-pending-publication",
+      "state": "published-awaiting-desktop-verification",
       "authorization": "implement, commit, push main; no installation or live reinitialization",
       "automated_tests": 62,
       "evidence": "doc/reports/DC-10-PACKAGING.md",
       "source_checkpoint": "docs/plan/checkpoints/DC-10-2026-09-23.sha256",
       "desktop_verification": "open",
-      "context_validation": "source-provenance-refresh-required"
+      "context_validation": "source-provenance-refresh-required",
+      "implementation_commit": "ce146ff4950dab9cc0e4fcce6299968571bb2ceb",
+      "remote": "origin/main",
+      "publication": "verified"
     }
   ]
 }

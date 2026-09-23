@@ -1,7 +1,7 @@
 ---
 id: REPORT-DC-10-PACKAGING
 title: DC-10 marketplace packaging and publication
-status: verified-pending-publication
+status: published-pending-desktop-verification
 features: [bootstrap, routing, tasks, closure]
 source_checkpoint: docs/plan/checkpoints/DC-10-2026-09-23.sha256
 fixture_class: local Node CLI and external temporary Git repositories
@@ -30,3 +30,7 @@ The user authorized publication of relevant prerequisite changes and trackable c
 `node plugins/deep-context/bin/deep-context.cjs validate --project .deep-context` was run without initialization. It reports source-inventory drift from relocated, added and modified source paths. The runtime has no exported narrow provenance-refresh operation; initialization is deliberately left to the user’s requested post-install deep-init refresh. No authored source interpretation, task memory, ID, or provenance history is replaced to make validation pass. Generated indexes were rebuilt separately. Final validation after staging returned 30 source-only diagnostics: 4 changed hashes, 11 changed tracking classifications, 8 newly eligible paths, and 7 retired paths. There were no structural, reference, task-memory, or index diagnostics. Source-inventory errors are a known remaining context refresh, not a passed validation gate.
 
 Desktop installation, fresh skill discovery, and actual cross-chat recovery remain untested. Synthetic subprocess lifecycle evidence cannot establish these gates. The user installs the published marketplace package, removes the old personal copy only after successful installation, opens a fresh task, and refreshes this existing repository context while preserving documents and history.
+
+## Publication
+
+Implementation commit `ce146ff4950dab9cc0e4fcce6299968571bb2ceb` was pushed without force to `https://github.com/Drew-Miller/deep-context.git`, branch `main`, on 2026-09-23. `git ls-remote origin refs/heads/main` matched that local revision. `git show HEAD:.agents/plugins/marketplace.json` confirmed the correct catalog source, and `git ls-tree -r --name-only HEAD plugins/deep-context` contained all 18 package files. The working tree was clean after publication. This documentation-only receipt follows that implementation commit; its package and source hashes remain unchanged.

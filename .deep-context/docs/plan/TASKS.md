@@ -69,7 +69,7 @@ The DC-08 next action above is historical. DC-09 supersedes its storage and skil
 - Open gates: fresh desktop discovery of the three updated skills and cross-chat task recovery/closure, plus Git-backed marketplace pickup after a separately authorized commit and push. No commit, push, or remote marketplace upgrade has been authorized.
 - Exact next safe action: start a fresh desktop task in the Deep Context project, verify deep-init/deep-task/deep-close pickup and read-only task recovery, then record actual IDs and results before marking desktop acceptance. Do not infer remote Git-marketplace pickup from the local install.
 
-## DC-10 Marketplace package boundary (verified; publication pending)
+## DC-10 Marketplace package boundary (published; desktop gate open)
 
 - Authorization: implement, review prerequisites, commit and push main; user performs installation and deep-init refresh. No live project reinitialization.
 - Plan: relocate the single authoritative runtime into plugins/deep-context; resolve templates from package/source module paths; enforce explicit package allowlist; test isolated lifecycle; review and publish relevant prerequisites and durable context.
@@ -80,3 +80,6 @@ The DC-08 next action above is historical. DC-09 supersedes its storage and skil
 - Accepted 2026-09-23: 62 tests/11 files; typecheck/build; exact 18-file package boundary and isolated lifecycle smoke; official manifest and three skill validators; marketplace validation; byte-identical bundle rebuild; staged whitespace/private-state checks. Evidence: `doc/reports/DC-10-PACKAGING.md`; source checkpoint: `docs/plan/checkpoints/DC-10-2026-09-23.sha256`. Workers are frozen and reviewed.
 - Live context validation retains source-inventory drift; no narrow public refresh command exists, so the user’s authorized post-install deep-init refresh remains the next context action. Desktop acceptance is still open.
 - Exact next safe action: commit reviewed staged files and push main without force; verify the remote revision and its complete package. Then the user installs and refreshes existing context.
+
+- Publication accepted: implementation `ce146ff4950dab9cc0e4fcce6299968571bb2ceb` pushed to origin/main without force and remote revision verified. Catalog and all 18 package files verified in that commit.
+- Exact next safe action: user installs deep-context from deep-context-repo, removes the old personal copy only after successful installation, opens a fresh task in this repository and runs deep-init to refresh existing source provenance while preserving documents, task memory and history. Then record desktop skill discovery and recovery evidence.
