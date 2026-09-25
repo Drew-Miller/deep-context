@@ -1,14 +1,8 @@
 ---
-id: SRC-ED13E7ECC340
-path: templates/project/PROJECT_CONTEXT_AGENT.md.template
-kind: binary-or-unknown
-tracking: tracked
-disposition: excluded
-reason: non-text or unsupported file type
-origin: confirmed
-targets: []
+redirect_id: SRC-ED13E7ECC340
+redirect_to: doc/sources/templates-project-project-context-agent-md-template--SRC-ED13E7ECC340.md
 ---
 
-# templates/project/PROJECT_CONTEXT_AGENT.md.template
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/templates/project/PROJECT_CONTEXT_AGENT.md.template` only when its routing metadata makes it relevant.
+This record moved to [templates-project-project-context-agent-md-template--SRC-ED13E7ECC340.md](./templates-project-project-context-agent-md-template--SRC-ED13E7ECC340.md).

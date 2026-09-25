@@ -1,14 +1,8 @@
 ---
-id: SRC-3AD6349BE2F8
-path: dist/tests/routing.test.js
-kind: text
-tracking: untracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-3AD6349BE2F8
+redirect_to: doc/sources/dist-tests-routing-test-js--SRC-3AD6349BE2F8.md
 ---
 
-# dist/tests/routing.test.js
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/tests/routing.test.js` only when its routing metadata makes it relevant.
+This record moved to [dist-tests-routing-test-js--SRC-3AD6349BE2F8.md](./dist-tests-routing-test-js--SRC-3AD6349BE2F8.md).

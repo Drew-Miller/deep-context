@@ -1,14 +1,8 @@
 ---
-id: SRC-555AE8D7C5EC
-path: dist/src/tasks/templates.js
-kind: text
-tracking: untracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-555AE8D7C5EC
+redirect_to: doc/sources/dist-src-tasks-templates-js--SRC-555AE8D7C5EC.md
 ---
 
-# dist/src/tasks/templates.js
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/src/tasks/templates.js` only when its routing metadata makes it relevant.
+This record moved to [dist-src-tasks-templates-js--SRC-555AE8D7C5EC.md](./dist-src-tasks-templates-js--SRC-555AE8D7C5EC.md).

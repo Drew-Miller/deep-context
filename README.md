@@ -131,9 +131,17 @@ node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs rebuild-ind
 node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs validate --project /path/to/my-project
 ```
 
+New Backlog, Active, and source records use readable slugs with stable IDs. Existing ID-only files remain valid. To rename them, preview `migrate-filenames --project <context-path>`, then run it with `--apply`. The old files become forwarding links. `rename-record <id>` updates a path after its title changes; `repair-filenames` resumes an interrupted migration and refuses intervening edits. Task folders keep their original slug and UUID so chat bindings and attached sources do not move.
+
+Backlog `queue_position` values and task positions in local `tasks/ORDER.md` control work order. `reorder-backlog <id>` and `reorder-task <task-uuid>` accept exactly one of `--before <id>`, `--after <id>`, or `--position <number>`. Generated Backlog views and `list-tasks` show the stored order. Unranked work follows ranked work by stable ID; completed and deferred Backlog items remain separate from the next-up lane. These commands do not change a project's own live schedule.
+
 ### 3. Start or resume task memory
 
-Use `deep-task` in a Codex Project chat. Describe new work or name an existing task to continue. The skill derives a task name, associates the chat when runtime identity is available, and reads only selected context. An unbound chat stays at project scope. The agent captures useful decisions, discoveries, blockers, evidence, and future ideas during work.
+Use `deep-task` explicitly in an ordinary Codex project chat. With no selection, it offers Create from this conversation or an existing open task. An explicit new-work request creates directly and saves a relevant summary of the conversation. An unbound chat remains at project scope.
+
+`start-task --context-file <path>` accepts a JSON object with optional string fields `acceptanceCriteria`, `acceptedDecisions`, `constraints`, `findings`, and `openQuestions`. The objective remains the required `--description`. The CLI writes that initial context with the task in one transaction.
+
+One chat belongs to one durable task, even after release or closure. Repeating `deep-task` refreshes that association. A task can span successive chats with one writer at a time. Project instructions restore the association on startup and recovery after compaction; this is agent instruction routing, not a lifecycle hook.
 
 ```bash
 node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs start-task \
@@ -147,7 +155,7 @@ When runtime chat identity is missing, use the returned task path and binding ID
 
 Task memory alone does not authorize source edits. Before source work, explicitly attach the permitted mode and path through `attach-source`; the command records source ownership and checks the saved revision.
 
-The agent checkpoints before a pause, handoff, long operation, or completion. The CLI operation remains available to the agent:
+The agent checkpoints meaningful progress at milestones and before ending work turns, preserving completed work and evidence, decisions, blockers, questions, and the exact next action. Unchanged checkpoints are skipped. The CLI operation remains available to the agent:
 
 ```bash
 node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs save-task <task-id-or-path> \
@@ -159,6 +167,13 @@ node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs save-task <
   --chat-id <runtime-chat-id> \
   --json
 ```
+
+
+For structured checkpoints, `save-task --checkpoint-file <path>` accepts a JSON object with optional string fields `completedWork`, `decisions`, `blockers`, `openQuestions`, and `nextAction`. Supplied fields replace their shared-state sections, so retain relevant existing content. The same transaction appends the checkpoint to chat memory. Invalid fields and stale revisions fail without saving.
+
+To replace an oversized chat, ask it to checkpoint for a fresh chat. It saves, releases ownership, and gives a prompt containing the task UUID and project path. Open a new project chat and paste that prompt. If the previous chat was already archived or deleted without releasing, confirm takeover to continue from the latest saved checkpoint. Desktop archive/delete does not close task memory; unsaved work cannot be recovered. Reopening an old chat restores its task in a non-owner state, without reclaiming ownership.
+
+The read-only `list-tasks --project <path> --json` command lists open tasks and ownership status. `resolve-task --allow-unbound --json` distinguishes an unbound chat from invalid state. Task results include `bindingStatus` and `isOwner`; restoring context alone never grants writer access. Existing schema-version-2 task folders remain compatible. Use a new project chat for different work.
 
 ### 4. Review and close the task
 
@@ -193,15 +208,21 @@ node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs close-task 
 | `migrate-project <old-path> --repo <path>` | Validate in-repo copy, keep a dated backup, and redirect the old home |
 | `capture-backlog --title --pitch --provenance` | Save a non-binding proposal with an elevator pitch |
 | `activate-backlog <id> --objective <text>` | Accept an objective after checking related and opposing work |
+| `reorder-backlog <id>` | Place a proposed or planned item before, after, or at a queue position |
+| `reorder-task <task-uuid>` | Change local task queue order without changing task ownership |
 | `repair-context` | Recover an interrupted Backlog write when no intervening edit conflicts |
+| `migrate-filenames` | Preview or explicitly apply descriptive canonical file paths with forwarding links |
+| `rename-record <id>` | Refresh one canonical file path after a title change |
+| `repair-filenames` | Recover interrupted canonical filename changes without overwriting new edits |
 | `rebuild-indexes` | Regenerate lightweight routing indexes |
 | `validate` | Check project structure, schemas, references, and indexes |
 | `start-task --description <text>` | Create explicit task memory and optionally bind the current chat |
-| `resolve-task --task <id-or-path>` | Inspect an explicit task selection without changing it |
+| `list-tasks` | List open tasks and their ownership state without changing them |
+| `resolve-task --task <id-or-path>` | Inspect an explicit task selection without changing it; `--allow-unbound` returns a structured unbound result |
 | `repair-tasks` | Recover interrupted task writes; refuses conflicting notes |
 | `register-project <path>` | Rebuild an external-home repository association |
 | `resume-task <id-or-path>` | Resume task memory; `--takeover` transfers an active owner explicitly |
-| `save-task <id-or-path>` | Save chat notes and a revision-guarded checkpoint |
+| `save-task <id-or-path>` | Save chat notes and a revision-guarded checkpoint; `--checkpoint-file` accepts structured progress |
 | `attach-source <id-or-path>` | Explicitly attach an allowed source execution mode and path |
 | `create-task <name>` | Create a scoped task record and Git worktree |
 | `checkpoint-task <name>` | Persist task state and its next safe action |

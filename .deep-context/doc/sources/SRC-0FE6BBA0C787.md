@@ -1,14 +1,8 @@
 ---
-id: SRC-0FE6BBA0C787
-path: dist/src/projects/templates.js
-kind: text
-tracking: untracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-0FE6BBA0C787
+redirect_to: doc/sources/dist-src-projects-templates-js--SRC-0FE6BBA0C787.md
 ---
 
-# dist/src/projects/templates.js
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/src/projects/templates.js` only when its routing metadata makes it relevant.
+This record moved to [dist-src-projects-templates-js--SRC-0FE6BBA0C787.md](./dist-src-projects-templates-js--SRC-0FE6BBA0C787.md).

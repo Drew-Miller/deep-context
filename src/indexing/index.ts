@@ -1,6 +1,7 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { atomicWrite, exists, readText } from "../core/fs.js";
+import { isForwarder } from "../core/records.js";
 import { parseMarkdown } from "../frontmatter/index.js";
 
 async function markdownFiles(directory: string): Promise<string[]> {
@@ -24,10 +25,31 @@ function cell(value: unknown): string {
 async function records(directory: string, accept?: (file: string) => boolean): Promise<Array<{ relative: string; data: Record<string, unknown>; body: string }>> {
   const root = path.dirname(directory);
   const files = (await markdownFiles(directory)).filter((file) => !accept || accept(file));
-  return Promise.all(files.map(async (file) => {
+  return (await Promise.all(files.map(async (file) => {
     const document = parseMarkdown(await readText(file));
     return { relative: path.relative(root, file), data: document.data, body: document.body };
-  }));
+  }))).filter(({ data }) => !isForwarder(data)).sort((a, b) => String(a.data.id ?? a.data.name ?? a.relative).localeCompare(String(b.data.id ?? b.data.name ?? b.relative)));
+}
+
+function backlogLane(status: unknown): number {
+  return status === "proposed" || status === "planned" ? 0 : status === "active" ? 1 : status === "deferred" ? 2 : 3;
+}
+
+function backlogOrder(rows: Array<{ relative: string; data: Record<string, unknown> }>): typeof rows {
+  return rows.sort((a, b) => {
+    const lane = backlogLane(a.data.status) - backlogLane(b.data.status);
+    if (lane) return lane;
+    if (backlogLane(a.data.status) === 0) {
+      const aRank = typeof a.data.queue_position === "number" ? a.data.queue_position : Number.POSITIVE_INFINITY;
+      const bRank = typeof b.data.queue_position === "number" ? b.data.queue_position : Number.POSITIVE_INFINITY;
+      if (aRank !== bRank) return aRank < bRank ? -1 : 1;
+    }
+    return String(a.data.id).localeCompare(String(b.data.id));
+  });
+}
+
+function laneLabel(status: unknown): string {
+  return backlogLane(status) === 0 ? "Next up" : backlogLane(status) === 1 ? "In progress" : backlogLane(status) === 2 ? "Deferred" : "History";
 }
 
 function legacyReportMetadata(relative: string, body: string): Record<string, unknown> {
@@ -52,7 +74,7 @@ export async function buildIndexes(projectRoot: string): Promise<Map<string, str
   return new Map([
     [path.join(doc, "FEATURES.md"), render("Feature Registry", ["Feature", "Purpose", "Ownership", "Dependencies", "Context"], features.map(({ relative, data }) => [data.name, data.description, data.owns, data.depends_on, relative]))],
     [path.join(doc, "REQUIREMENTS.md"), render("Requirement Registry", ["ID", "Requirement", "Feature", "Status", "Context"], requirements.map(({ relative, data }) => [data.id, data.title, data.feature, data.status, relative]))],
-    [path.join(doc, "BACKLOG.md"), render("Backlog Registry", ["ID", "Proposal", "Elevator pitch", "Status", "Features", "Related", "Conflicts", "Context"], backlog.map(({ relative, data }) => [data.id, data.title, data.pitch, data.status, data.features, data.related, data.conflicts, relative]))],
+    [path.join(doc, "BACKLOG.md"), render("Backlog Registry", ["Lane", "Position", "ID", "Proposal", "Elevator pitch", "Status", "Features", "Related", "Conflicts", "Context"], backlogOrder(backlog).map(({ relative, data }) => [laneLabel(data.status), backlogLane(data.status) === 0 ? data.queue_position : null, data.id, data.title, data.pitch, data.status, data.features, data.related, data.conflicts, relative]))],
     [path.join(doc, "ACTIVE.md"), render("Active Work Registry", ["ID", "Objective", "Status", "Features", "Backlog", "Tasks", "Context"], active.map(({ relative, data }) => [data.id, data.objective, data.status, data.features, data.backlog, data.tasks, relative]))],
     [path.join(doc, "DECISIONS.md"), render("Decision Registry", ["ID", "Decision", "Status", "Features", "Context"], decisions.map(({ relative, data }) => [data.id, data.title, data.status, data.features, relative]))],
     [path.join(doc, "REPORTS.md"), render("Report Registry", ["ID", "Report", "Status", "Features", "Context"], reports.map(({ relative, data }) => [data.id, data.title, data.status, data.features, relative]))],

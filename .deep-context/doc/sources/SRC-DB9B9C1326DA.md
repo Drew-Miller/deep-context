@@ -1,14 +1,8 @@
 ---
-id: SRC-DB9B9C1326DA
-path: dist/src/routing/index.js
-kind: text
-tracking: untracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-DB9B9C1326DA
+redirect_to: doc/sources/dist-src-routing-index-js--SRC-DB9B9C1326DA.md
 ---
 
-# dist/src/routing/index.js
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/src/routing/index.js` only when its routing metadata makes it relevant.
+This record moved to [dist-src-routing-index-js--SRC-DB9B9C1326DA.md](./dist-src-routing-index-js--SRC-DB9B9C1326DA.md).

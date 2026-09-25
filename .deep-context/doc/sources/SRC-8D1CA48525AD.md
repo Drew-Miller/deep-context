@@ -1,14 +1,8 @@
 ---
-id: SRC-8D1CA48525AD
-path: templates/task/AGENTS.md.template
-kind: binary-or-unknown
-tracking: tracked
-disposition: excluded
-reason: non-text or unsupported file type
-origin: confirmed
-targets: []
+redirect_id: SRC-8D1CA48525AD
+redirect_to: doc/sources/templates-task-agents-md-template--SRC-8D1CA48525AD.md
 ---
 
-# templates/task/AGENTS.md.template
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/templates/task/AGENTS.md.template` only when its routing metadata makes it relevant.
+This record moved to [templates-task-agents-md-template--SRC-8D1CA48525AD.md](./templates-task-agents-md-template--SRC-8D1CA48525AD.md).

@@ -1,14 +1,8 @@
 ---
-id: SRC-14FC741EA7F8
-path: templates/task/CONTEXT_MANIFEST.md.template
-kind: binary-or-unknown
-tracking: tracked
-disposition: excluded
-reason: non-text or unsupported file type
-origin: confirmed
-targets: []
+redirect_id: SRC-14FC741EA7F8
+redirect_to: doc/sources/templates-task-context-manifest-md-template--SRC-14FC741EA7F8.md
 ---
 
-# templates/task/CONTEXT_MANIFEST.md.template
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/templates/task/CONTEXT_MANIFEST.md.template` only when its routing metadata makes it relevant.
+This record moved to [templates-task-context-manifest-md-template--SRC-14FC741EA7F8.md](./templates-task-context-manifest-md-template--SRC-14FC741EA7F8.md).

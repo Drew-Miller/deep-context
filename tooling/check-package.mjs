@@ -20,6 +20,7 @@ const packageFiles = new Set([
   "skills/deep-init/agents/openai.yaml",
   "skills/deep-task/SKILL.md",
   "skills/deep-task/agents/openai.yaml",
+  "skills/deep-stats/SKILL.md",
   "templates/project/AGENTS.md.template",
   "templates/project/ARCHITECTURE.md.template",
   "templates/project/CONTEXT_MAP.md.template",
@@ -127,9 +128,22 @@ export async function smokePackage(packageRoot) {
     await cli(command, ["init", "--repo", repository], options);
     assert.equal(await readFile(architecturePath, "utf8"), authoredArchitecture, "reinitialization replaced authored architecture");
 
-    const started = await cliJson(command, ["start-task", "--project", context, "--chat-id", "package-a", "--name", "Package smoke", "--description", "Verify copied package lifecycle"], options);
-    const saved = await cliJson(command, ["save-task", started.taskId, "--project", context, "--binding-id", started.bindingId, "--expected-revision", String(started.stateRevision), "--next-action", "Preserve this package checkpoint."], options);
+    const initialContextPath = path.join(temporary, "initial-context.json");
+    await writeFile(initialContextPath, JSON.stringify({ acceptanceCriteria: "Recovery survives chat replacement.", acceptedDecisions: "Use explicit task selection." }));
+    const started = await cliJson(command, ["start-task", "--project", context, "--chat-id", "package-a", "--name", "Package smoke", "--description", "Verify copied package lifecycle", "--context-file", initialContextPath], options);
+    assert.match(await readFile(path.join(started.taskPath, "TASK_CONTEXT.md"), "utf8"), /Recovery survives chat replacement\./);
+    const tasks = await cliJson(command, ["list-tasks", "--project", context], options);
+    assert.equal(tasks[0].taskId, started.taskId);
+    assert.equal(tasks[0].ownershipState, "owned");
+    const unbound = await cliJson(command, ["resolve-task", "--project", context, "--chat-id", "package-unbound", "--allow-unbound"], options);
+    assert.equal(unbound.status, "unbound");
+    const checkpointPath = path.join(temporary, "checkpoint.json");
+    await writeFile(checkpointPath, JSON.stringify({ completedWork: "Copied package started.", nextAction: "Preserve this package checkpoint." }));
+    const saved = await cliJson(command, ["save-task", started.taskId, "--project", context, "--binding-id", started.bindingId, "--expected-revision", String(started.stateRevision), "--checkpoint-file", checkpointPath], options);
     const released = await cliJson(command, ["save-task", started.taskId, "--project", context, "--binding-id", started.bindingId, "--expected-revision", String(saved.stateRevision), "--release"], options);
+    const oldChat = await cliJson(command, ["resolve-task", "--project", context, "--chat-id", "package-a"], options);
+    assert.equal(oldChat.bindingStatus, "released");
+    assert.equal(oldChat.isOwner, false);
     const resumed = await cliJson(command, ["resume-task", started.taskId, "--project", context, "--chat-id", "package-b", "--expected-revision", String(released.stateRevision)], options);
     const resolved = await cliJson(command, ["resolve-task", "--project", context, "--chat-id", "package-b"], options);
     assert.equal(resolved.taskId, started.taskId);
@@ -137,6 +151,21 @@ export async function smokePackage(packageRoot) {
     assert.ok(resolved.requiredReads.includes(path.join(started.taskPath, "chats", started.bindingId, "MEMORY.md")), "resolved task omitted predecessor chat memory");
     assert.match(await readFile(path.join(started.taskPath, "TASK_STATE.md"), "utf8"), /Preserve this package checkpoint\./);
     await cli(command, ["validate", "--project", context], options);
+    const stats = await cliJson(command, ["stats", "--project", context, "--record"], options);
+    assert.equal(stats.kind, "deep-context-stats");
+    assert.equal(stats.health.valid, true);
+    assert.ok(stats.recordedAt.startsWith(path.join(stats.projectRoot, ".local", "metrics")), `Unexpected metrics record path: ${stats.recordedAt}`);
+    const history = await cliJson(command, ["stats-history", "--project", context], options);
+    assert.equal(history.length, 1);
+    assert.equal(history[0].kind, "deep-context-stats");
+    const baseline = path.join(temporary, "baseline.jsonl");
+    const deep = path.join(temporary, "deep.jsonl");
+    await writeFile(baseline, '{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":50,"output_tokens":20}}\n');
+    await writeFile(deep, '{"type":"turn.completed","usage":{"input_tokens":80,"cached_input_tokens":40,"output_tokens":20}}\n');
+    const comparison = await cliJson(command, ["compare-usage", "--baseline", baseline, "--deep-context", deep, "--baseline-score", "1", "--deep-score", "1"], options);
+    assert.equal(comparison.kind, "deep-context-comparison");
+    assert.equal(comparison.qualityMaintained, true);
+    assert.equal(comparison.totalReductionPercent, 16.7);
     return { temporary, context, taskId: started.taskId };
   } finally {
     await rm(temporary, { recursive: true, force: true });

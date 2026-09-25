@@ -1,14 +1,8 @@
 ---
-id: SRC-50A1CE2A5E4B
-path: assets/deep-context-pattern.svg
-kind: binary-or-unknown
-tracking: tracked
-disposition: excluded
-reason: non-text or unsupported file type
-origin: confirmed
-targets: []
+redirect_id: SRC-50A1CE2A5E4B
+redirect_to: doc/sources/assets-deep-context-pattern-svg--SRC-50A1CE2A5E4B.md
 ---
 
-# assets/deep-context-pattern.svg
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/assets/deep-context-pattern.svg` only when its routing metadata makes it relevant.
+This record moved to [assets-deep-context-pattern-svg--SRC-50A1CE2A5E4B.md](./assets-deep-context-pattern-svg--SRC-50A1CE2A5E4B.md).

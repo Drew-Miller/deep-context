@@ -9,18 +9,20 @@
   "interface": {
     "displayName": "Deep Context",
     "shortDescription": "Keep project context durable and selectively readable.",
-    "longDescription": "Deep Context creates self-describing project and task context trees, deterministic indexes, safe Git worktrees, and evidence-bound closure workflows.",
+    "longDescription": "Deep Context creates self-describing project and task context trees, deterministic indexes, safe Git worktrees, evidence-bound closure workflows, and local context metrics.",
     "developerName": "Local developer",
     "category": "Productivity",
     "capabilities": [
       "Local filesystem",
       "Git worktrees",
-      "Context routing"
+      "Context routing",
+      "Local context metrics"
     ],
     "defaultPrompt": [
       "Initialize this repository with Deep Context.",
       "Create a scoped Deep Context task.",
-      "Validate this Deep Context project."
+      "Validate this Deep Context project.",
+      "Show Deep Context stats for this project."
     ]
   }
 }

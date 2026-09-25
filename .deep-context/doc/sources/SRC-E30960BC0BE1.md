@@ -1,14 +1,8 @@
 ---
-id: SRC-E30960BC0BE1
-path: skills/deep-context-init/SKILL.md
-kind: text
-tracking: missing
-disposition: review
-reason: nonignored working-tree evidence requires review
-origin: confirmed
-targets: []
+redirect_id: SRC-E30960BC0BE1
+redirect_to: doc/sources/skills-deep-context-init-skill-md--SRC-E30960BC0BE1.md
 ---
 
-# skills/deep-context-init/SKILL.md
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/skills/deep-context-init/SKILL.md` only when its routing metadata makes it relevant.
+This record moved to [skills-deep-context-init-skill-md--SRC-E30960BC0BE1.md](./skills-deep-context-init-skill-md--SRC-E30960BC0BE1.md).

@@ -1,14 +1,8 @@
 ---
-id: SRC-4B092EDF72BB
-path: dist/src/tasks/index.d.ts
-kind: text
-tracking: untracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-4B092EDF72BB
+redirect_to: doc/sources/dist-src-tasks-index-d-ts--SRC-4B092EDF72BB.md
 ---
 
-# dist/src/tasks/index.d.ts
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/src/tasks/index.d.ts` only when its routing metadata makes it relevant.
+This record moved to [dist-src-tasks-index-d-ts--SRC-4B092EDF72BB.md](./dist-src-tasks-index-d-ts--SRC-4B092EDF72BB.md).

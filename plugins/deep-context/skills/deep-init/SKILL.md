@@ -12,3 +12,5 @@ For a repository, use `init --repo <repository-path>`; the CLI resolves its prim
 The repository's own `AGENTS.md`, source ownership rules, and live schedules remain authoritative. Initialization installs a marker-delimited root startup route while preserving unrelated instructions. Durable documents and generated indexes may be Git tracked; `tasks/`, `.local/`, and `repo` are ignored. It does not stage or commit. Read routing files and source inventory before promoting confirmed knowledge. Preserve uncertainty as inferred context or Backlog intent.
 
 Finish by rebuilding indexes and validating the selected project. Do not create a task merely because the user asks a project-level question.
+
+For existing ID-only canonical filenames, run `migrate-filenames --project <project-root>` to preview exact moves and exceptions, then `migrate-filenames --apply` when the migration is requested. Old paths become one-hop forwarding files. Use `repair-filenames` for an interrupted migration; it refuses intervening edits. Source record IDs, authored interpretations, and task folders remain stable.

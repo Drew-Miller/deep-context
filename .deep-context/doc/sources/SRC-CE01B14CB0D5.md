@@ -1,15 +1,8 @@
 ---
-id: SRC-CE01B14CB0D5
-path: tests/routing.test.ts
-kind: text
-tracking: tracked
-disposition: review
-reason: nonignored working-tree evidence requires review
-sha256: 718cf869df4419bb64922e40529a7969c810421be0ab80019d39b96797e0bef7
-origin: confirmed
-targets: []
+redirect_id: SRC-CE01B14CB0D5
+redirect_to: doc/sources/tests-routing-test-ts--SRC-CE01B14CB0D5.md
 ---
 
-# tests/routing.test.ts
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/tests/routing.test.ts` only when its routing metadata makes it relevant.
+This record moved to [tests-routing-test-ts--SRC-CE01B14CB0D5.md](./tests-routing-test-ts--SRC-CE01B14CB0D5.md).

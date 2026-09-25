@@ -11,7 +11,7 @@ This project stores durable context in human-readable files. Chats and active co
 5. Read the generated indexes in `doc/` to select canonical files, including decisions and reports when deep context is needed.
 6. Read only relevant canonical bodies. Deep context includes only decisions and reports associated with the selected feature; do not recursively load `doc/`.
 
-For every project chat, resolve its existing association through the bundled CLI (`resolve-task --project <this context root>`, using CODEX_THREAD_ID when available). Read returned requiredReads. An unbound chat stays at project scope until the user invokes deep-task; never choose the newest task. Without runtime identity, use an explicit task path and binding ID. Checkpoint useful decisions, discoveries, blockers, evidence, objective changes, and future ideas during work and before handoff or long operations. Refresh affected indexes and validate the changed context.
+{{TASK_ROUTING}}
 
 ## Preservation
 

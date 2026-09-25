@@ -1,14 +1,8 @@
 ---
-id: SRC-EF19C70F0C65
-path: dist/tests/tasks.test.js
-kind: text
-tracking: untracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-EF19C70F0C65
+redirect_to: doc/sources/dist-tests-tasks-test-js--SRC-EF19C70F0C65.md
 ---
 
-# dist/tests/tasks.test.js
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/tests/tasks.test.js` only when its routing metadata makes it relevant.
+This record moved to [dist-tests-tasks-test-js--SRC-EF19C70F0C65.md](./dist-tests-tasks-test-js--SRC-EF19C70F0C65.md).

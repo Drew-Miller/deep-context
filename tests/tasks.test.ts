@@ -222,9 +222,12 @@ describe("task lifecycle", () => {
     await expect(readFile(statePath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     expect(await readFile(path.join(project, "doc", "DECISIONS.md"), "utf8")).toContain("DEC-RECOVERY");
     expect(await readFile(path.join(project, "doc", "REPORTS.md"), "utf8")).toContain("Closure of recovery");
+    const closureReports = await readdir(path.join(project, "doc", "reports", "closures"));
+    expect(closureReports).toHaveLength(1);
+    expect(closureReports[0]).toMatch(/^closure-of-recovery--CLOSURE-/);
     expect((await selectFeatureContext(project, { memory: "deep" })).files).toEqual(expect.arrayContaining([
       "doc/decisions/DEC-RECOVERY.md",
-      path.relative(project, path.join(project, "doc", "reports", "closures", `${path.basename(archive)}.md`)),
+      path.relative(project, path.join(project, "doc", "reports", "closures", closureReports[0]!)),
     ]));
     expect(await validateProject(project)).toEqual([]);
   });

@@ -12,3 +12,5 @@
 - Source fingerprints exclude the exact context subtree and retain existing blockers when source-dependent findings need revalidation.
 - The agent restores a known chat association on startup and checkpoints useful discoveries, decisions, blockers, evidence, changed objectives, and the next action before long operations or handoff.
 - A new unbound chat remains at project scope until deep-task creates or explicitly selects memory. Skills and reusable agent behavior come from the installed plugin, not project copies.
+- Released and closed chat bindings remain discoverable as historical associations. Association does not imply current ownership; one chat cannot switch tasks by releasing its writer binding.
+- An explicit initial-context object is saved in the task creation transaction. Structured checkpoints update shared state and chat memory together, retaining prior findings and avoiding redundant revisions.

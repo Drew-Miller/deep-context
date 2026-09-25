@@ -1,14 +1,8 @@
 ---
-id: SRC-DD0746DA16EB
-path: templates/project/PROJECT.md.template
-kind: binary-or-unknown
-tracking: tracked
-disposition: excluded
-reason: non-text or unsupported file type
-origin: confirmed
-targets: []
+redirect_id: SRC-DD0746DA16EB
+redirect_to: doc/sources/templates-project-project-md-template--SRC-DD0746DA16EB.md
 ---
 
-# templates/project/PROJECT.md.template
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/templates/project/PROJECT.md.template` only when its routing metadata makes it relevant.
+This record moved to [templates-project-project-md-template--SRC-DD0746DA16EB.md](./templates-project-project-md-template--SRC-DD0746DA16EB.md).

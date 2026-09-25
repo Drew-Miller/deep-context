@@ -1,7 +1,8 @@
+import { taskRoutingBlock } from "../config/index.js";
 import { renderTemplate } from "../core/template.js";
 
 export function projectAgents(name: string): string {
-  return renderTemplate("project/AGENTS.md.template", { PROJECT_NAME: name });
+  return renderTemplate("project/AGENTS.md.template", { PROJECT_NAME: name, TASK_ROUTING: taskRoutingBlock });
 }
 
 export function contextMap(name: string): string {

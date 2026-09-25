@@ -1,14 +1,8 @@
 ---
-id: SRC-A81AE501C81D
-path: dist/src/closure/index.d.ts
-kind: text
-tracking: untracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-A81AE501C81D
+redirect_to: doc/sources/dist-src-closure-index-d-ts--SRC-A81AE501C81D.md
 ---
 
-# dist/src/closure/index.d.ts
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/src/closure/index.d.ts` only when its routing metadata makes it relevant.
+This record moved to [dist-src-closure-index-d-ts--SRC-A81AE501C81D.md](./dist-src-closure-index-d-ts--SRC-A81AE501C81D.md).

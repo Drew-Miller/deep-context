@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { readdir } from "node:fs/promises";
 import { stringify } from "yaml";
-import { exists, readText, within } from "../core/fs.js";
+import { readText, within } from "../core/fs.js";
+import { canonicalRecordById, recordFilename } from "../core/records.js";
 import { parseMarkdown, renderMarkdown } from "../frontmatter/index.js";
 import { activeSchema, backlogSchema, decisionSchema } from "../frontmatter/schemas.js";
 import { rebuildIndexes } from "../indexing/index.js";
 import { withProjectLock } from "../tasks/transactions.js";
 import { assertNoPendingContext, writeContextOperation } from "./transactions.js";
+import { assertNoPendingFilenameOperations } from "../migration/transactions.js";
 
 export interface CaptureBacklogOptions {
   title: string; pitch: string; provenance: string; features?: string[]; related?: string[]; conflicts?: string[];
@@ -17,8 +18,9 @@ export async function captureBacklog(root: string, options: CaptureBacklogOption
   if (![options.title, options.pitch, options.provenance].every((value) => value?.trim())) throw new Error("Backlog title, elevator pitch, and provenance are required");
   return withProjectLock(root, async () => {
     await assertNoPendingContext(root);
+    await assertNoPendingFilenameOperations(root);
     const id = `BACKLOG-${randomUUID().toUpperCase()}`;
-    const target = path.join(root, "doc", "backlog", `${id}.md`);
+    const target = path.join(root, "doc", "backlog", recordFilename(id, options.title, "backlog"));
     const data = backlogSchema.parse({ id, title: options.title.trim(), pitch: options.pitch.trim(), status: "proposed", features: options.features ?? [], tokens: [], provenance: options.provenance.trim(), related: options.related ?? [], conflicts: options.conflicts ?? [], status_history: [] });
     await writeContextOperation(root, new Map([[target, renderMarkdown(data, `# ${data.title}\n\n${data.pitch}\n\n## Planning notes\n\n- Unclassified. Capturing this proposal does not authorize implementation.\n`)]]));
     await rebuildIndexes(root);
@@ -27,19 +29,14 @@ export async function captureBacklog(root: string, options: CaptureBacklogOption
 }
 
 async function byId(directory: string, id: string): Promise<string | undefined> {
-  if (!await exists(directory)) return undefined;
-  for (const entry of await readdir(directory)) {
-    if (!entry.endsWith(".md")) continue;
-    const target = path.join(directory, entry);
-    if (parseMarkdown(await readText(target)).data.id === id) return target;
-  }
-  return undefined;
+  return canonicalRecordById(directory, id);
 }
 
 export async function activateBacklog(root: string, id: string, objective: string, options: { tasks?: string[]; decision?: string }): Promise<string> {
   if (!objective.trim()) throw new Error("Accepted objective is required");
   return withProjectLock(root, async () => {
     await assertNoPendingContext(root);
+    await assertNoPendingFilenameOperations(root);
     const backlogPath = await byId(path.join(root, "doc", "backlog"), id);
     if (!backlogPath) throw new Error(`Unknown Backlog ID: ${id}`);
     const item = parseMarkdown(await readText(backlogPath));
@@ -82,11 +79,11 @@ export async function activateBacklog(root: string, id: string, objective: strin
       }
     }
     const activeId = `ACTIVE-${randomUUID().toUpperCase()}`;
-    const activePath = path.join(root, "doc", "active", `${activeId}.md`);
+    const activePath = path.join(root, "doc", "active", recordFilename(activeId, data.title, "active"));
     const activation = activeSchema.parse({ id: activeId, title: data.title, objective: objective.trim(), status: "active", features: data.features, backlog: [id], tasks: options.tasks ?? [], decision: options.decision ?? null });
     writes.set(activePath, renderMarkdown(activation, `# ${data.title}\n\n${objective.trim()}\n`));
     item.data.status = "active";
-    item.data.activation = `doc/active/${activeId}.md`;
+    item.data.activation = path.relative(root, activePath).split(path.sep).join("/");
     const history = Array.isArray(item.data.status_history) ? item.data.status_history : [];
     item.data.status_history = [...history, { from: data.status, to: "active", activation: activeId, ...(options.decision ? { decision: options.decision } : {}) }];
     writes.set(backlogPath, `---\n${stringify(item.data).trimEnd()}\n---\n${item.body}`);

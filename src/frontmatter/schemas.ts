@@ -36,6 +36,7 @@ export const backlogSchema = z.object({
   provenance: z.string().min(1),
   related: stringList,
   conflicts: stringList,
+  queue_position: z.number().int().positive().safe().optional(),
 }).passthrough();
 
 // External-format projects remain readable until their Shelf records are migrated.

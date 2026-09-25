@@ -42,3 +42,15 @@
 | REQ-DC-036 | Plan with Backlog pitches and accepted Active objectives | routing | implemented | requirements/REQ-DC-036-backlog-and-active-planning.md |
 | REQ-DC-037 | Keep raw closure memory local and conclusions durable | closure | implemented | requirements/REQ-DC-037-local-raw-closure-archive.md |
 | REQ-DC-038 | Distribute reusable behavior through the plugin repository | bootstrap | implemented-pending-desktop-verification | requirements/REQ-DC-038-repository-plugin-source.md |
+| REQ-DC-039 | Local documentation and context statistics | metrics | active | requirements/REQ-DC-039-local-stats.md |
+| REQ-DC-040 | Optional measured Codex token usage | metrics | active | requirements/REQ-DC-040-measured-usage.md |
+| REQ-DC-041 | Quality-aware paired usage comparison | metrics | active | requirements/REQ-DC-041-paired-benchmark.md |
+| REQ-DC-042 | Preserve a chat's task association independently of ownership | tasks | implemented-pending-desktop-verification | requirements/REQ-DC-042-permanent-chat-association.md |
+| REQ-DC-043 | Enter and recover task work through a project chat | routing | implemented-pending-desktop-verification | requirements/REQ-DC-043-task-entry-and-checkpoints.md |
+| REQ-DC-044 | Give every task a focused local guide | tasks | active | requirements/REQ-DC-044-required-task-guide.md |
+| REQ-DC-045 | Route task context through a concise table of contents | routing | active | requirements/REQ-DC-045-task-table-of-contents.md |
+| REQ-DC-046 | Capture accepted task scope before promoting project knowledge | tasks | active | requirements/REQ-DC-046-task-first-requirements.md |
+| REQ-DC-047 | Save bounded task checkpoints across related files | tasks | active | requirements/REQ-DC-047-atomic-task-checkpoints.md |
+| REQ-DC-048 | Restore task pointers at startup and after compaction | bootstrap | active | requirements/REQ-DC-048-sessionstart-task-recovery.md |
+| REQ-DC-049 | Keep canonical record paths readable without changing identity | routing | implemented | requirements/REQ-DC-049-readable-record-paths.md |
+| REQ-DC-050 | Preserve explicit Backlog and task order independently of filenames | tasks | implemented | requirements/REQ-DC-050-explicit-work-order.md |

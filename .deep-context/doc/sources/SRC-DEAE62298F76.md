@@ -1,15 +1,8 @@
 ---
-id: SRC-DEAE62298F76
-path: tests/frontmatter.test.ts
-kind: text
-tracking: tracked
-disposition: review
-reason: nonignored working-tree evidence requires review
-sha256: a27045611841b4ebe8423028109a45ffa819f7426d0322b31cc4b56f1065c00b
-origin: confirmed
-targets: []
+redirect_id: SRC-DEAE62298F76
+redirect_to: doc/sources/tests-frontmatter-test-ts--SRC-DEAE62298F76.md
 ---
 
-# tests/frontmatter.test.ts
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/tests/frontmatter.test.ts` only when its routing metadata makes it relevant.
+This record moved to [tests-frontmatter-test-ts--SRC-DEAE62298F76.md](./tests-frontmatter-test-ts--SRC-DEAE62298F76.md).

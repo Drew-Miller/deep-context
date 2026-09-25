@@ -21,6 +21,7 @@
 | `tasks/*` | Active transient execution state | Transient until promoted |
 | `.local/state.json` | Resolver and schema state only | Machine-readable, never unique knowledge |
 | `docs/plan/DC-08-CHAT-TASK-PLAN.md` | Desktop chat/task implementation plan | Implemented; live desktop gate remains |
+| `docs/plan/DC-13-TASK-CONTEXT-GUIDE.md` | Accepted task-first guide and compaction recovery plan | Planned; see live ledger |
 | `tasks/*/chats/*/MEMORY.md` | Per-chat notes and canonical binding history | Active task memory |
 | `doc/reports/closures/*.md` | Concise durable closure conclusions | Canonical |
 | `.local/archives/*` | Raw closed task and chat memory | Local archive |
@@ -42,7 +43,7 @@ Indexes can be deleted and rebuilt from canonical files. Closure must classify a
 
 ## Planning route
 
-For current desktop task work, select DEC-DC-002, REQ-DC-032 through REQ-DC-038, and REPORT-DC-09-IMPLEMENTATION through the lightweight indexes. DEC-DC-001 and DC-08 are historical for superseded layout and skill entry. `docs/plan/TASKS.md` and matching `STATUS.json` remain the live schedule.
+For DC-13 task-first guide work, select DEC-DC-005, REQ-DC-044 through REQ-DC-048, `docs/plan/DC-13-TASK-CONTEXT-GUIDE.md`, and the DC-12 report for the current implementation baseline. DEC-DC-004 remains authoritative for association and ownership; only its no-hook choice is superseded. DEC-DC-001 and DC-08 are historical for superseded layout and skill entry. `docs/plan/TASKS.md` and matching `STATUS.json` remain the live schedule.
 
 
 ## In-repository storage

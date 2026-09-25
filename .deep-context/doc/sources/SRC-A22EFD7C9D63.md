@@ -1,14 +1,8 @@
 ---
-id: SRC-A22EFD7C9D63
-path: dist/src/core/fs.js
-kind: text
-tracking: untracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-A22EFD7C9D63
+redirect_to: doc/sources/dist-src-core-fs-js--SRC-A22EFD7C9D63.md
 ---
 
-# dist/src/core/fs.js
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/src/core/fs.js` only when its routing metadata makes it relevant.
+This record moved to [dist-src-core-fs-js--SRC-A22EFD7C9D63.md](./dist-src-core-fs-js--SRC-A22EFD7C9D63.md).

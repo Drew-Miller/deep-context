@@ -8,6 +8,7 @@ import { machineStatePath } from "../projects/index.js";
 import { rebuildIndexes } from "../indexing/index.js";
 import type { ProjectState } from "../core/types.js";
 import { normalizeTaskName } from "../core/names.js";
+import { recordFilename } from "../core/records.js";
 import { assertMemoryOwner, resolveMemoryTask, withProjectLock, rebuildChatIndex } from "../tasks/memory.js";
 import { sourceSnapshot } from "../tasks/source.js";
 import { recoverClosure, stageClosure } from "./recovery.js";
@@ -198,9 +199,10 @@ async function finalize(projectRoot: string, taskName: string, options: ClosureO
   const levels = manifest.features && typeof manifest.features === "object" && !Array.isArray(manifest.features)
     ? manifest.features as Record<string, unknown> : {};
   const features = Object.entries(levels).filter(([, level]) => level === "feature" || level === "deep").map(([feature]) => feature).sort();
-  const reportPath = path.join(projectRoot, "doc", "reports", "closures", `${archiveName}.md`);
+  const reportId = `CLOSURE-${archiveName.toUpperCase()}`;
+  const reportPath = path.join(projectRoot, "doc", "reports", "closures", recordFilename(reportId, `Closure of ${name}`, "closure"));
   await atomicWrite(reportPath, renderMarkdown({
-    id: `CLOSURE-${archiveName.toUpperCase()}`,
+    id: reportId,
     title: `Closure of ${name}`,
     status: "accepted",
     features,

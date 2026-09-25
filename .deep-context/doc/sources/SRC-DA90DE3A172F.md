@@ -1,14 +1,8 @@
 ---
-id: SRC-DA90DE3A172F
-path: dist/cli.mjs
-kind: binary-or-unknown
-tracking: tracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-DA90DE3A172F
+redirect_to: doc/sources/dist-cli-mjs--SRC-DA90DE3A172F.md
 ---
 
-# dist/cli.mjs
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/cli.mjs` only when its routing metadata makes it relevant.
+This record moved to [dist-cli-mjs--SRC-DA90DE3A172F.md](./dist-cli-mjs--SRC-DA90DE3A172F.md).

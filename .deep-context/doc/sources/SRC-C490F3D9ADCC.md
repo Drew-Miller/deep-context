@@ -1,14 +1,8 @@
 ---
-id: SRC-C490F3D9ADCC
-path: dist/src/core/fs.d.ts
-kind: text
-tracking: untracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-C490F3D9ADCC
+redirect_to: doc/sources/dist-src-core-fs-d-ts--SRC-C490F3D9ADCC.md
 ---
 
-# dist/src/core/fs.d.ts
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/src/core/fs.d.ts` only when its routing metadata makes it relevant.
+This record moved to [dist-src-core-fs-d-ts--SRC-C490F3D9ADCC.md](./dist-src-core-fs-d-ts--SRC-C490F3D9ADCC.md).

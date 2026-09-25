@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import { initProject } from "../src/projects/index.js";
 import { parseMarkdown, renderMarkdown } from "../src/frontmatter/index.js";
-import { attachMemorySource, rebuildChatIndex, repairMemoryTasks, resolveMemoryTask, resumeMemoryTask, saveMemoryTask, startMemoryTask, validateMemoryTasks } from "../src/tasks/memory.js";
+import { attachMemorySource, listMemoryTasks, rebuildChatIndex, repairMemoryTasks, resolveMemoryTask, resumeMemoryTask, saveMemoryTask, startMemoryTask, validateMemoryTasks } from "../src/tasks/memory.js";
 import { sourceSnapshot } from "../src/tasks/source.js";
 import { withProjectLock } from "../src/tasks/transactions.js";
 import { createTask } from "../src/tasks/index.js";
@@ -59,8 +59,70 @@ describe("durable chat task memory", () => {
     expect(resumed.requiredReads).toContain(path.join(task.taskPath, "chats", task.bindingId!, "MEMORY.md"));
     expect(await readFile(path.join(task.taskPath, "chats", task.bindingId!, "MEMORY.md"), "utf8")).toContain("Important finding");
     await expect(saveMemoryTask(project, task.taskId, { bindingId: task.bindingId!, expectedRevision: resumed.stateRevision })).rejects.toThrow("ownership changed");
-    await saveMemoryTask(project, task.taskId, { chatId: "second", expectedRevision: resumed.stateRevision, release: true });
-    expect((await startMemoryTask(project, { chatId: "second", description: "Separate objective" })).taskId).not.toBe(task.taskId);
+    const released = await saveMemoryTask(project, task.taskId, { chatId: "second", expectedRevision: resumed.stateRevision, release: true });
+    expect(released.bindingStatus).toBe("released");
+    expect(released.isOwner).toBe(false);
+    expect((await startMemoryTask(project, { chatId: "second", description: "Separate objective" })).taskId).toBe(task.taskId);
+    const restored = await resumeMemoryTask(project, task.taskId, { chatId: "second", expectedRevision: released.stateRevision });
+    expect(restored.bindingId).toBe(released.bindingId);
+    expect(restored.bindingStatus).toBe("active");
+    expect(restored.isOwner).toBe(true);
+    const fallbackReleased = await saveMemoryTask(project, task.taskId, { chatId: "second", expectedRevision: restored.stateRevision, release: true });
+    const fallback = await resumeMemoryTask(project, task.taskId, { bindingId: restored.bindingId!, expectedRevision: fallbackReleased.stateRevision });
+    expect(fallback.bindingId).toBe(restored.bindingId);
+    expect(fallback.isOwner).toBe(true);
+  });
+
+  it("lists open tasks, allows explicit unbound routing, and persists structured checkpoints", async () => {
+    const { project } = await fixture();
+    await expect(resolveMemoryTask(project)).rejects.toThrow("No task");
+    expect(await resolveMemoryTask(project, undefined, { allowUnbound: true })).toEqual({ status: "unbound", bindingStatus: null, isOwner: false, requiredReads: [] });
+    const task = await startMemoryTask(project, { chatId: "a", name: "Checkpoint title", description: "Ship a durable handoff" });
+    expect(await listMemoryTasks(project)).toEqual([expect.objectContaining({ taskId: task.taskId, title: "Checkpoint title", objective: "Ship a durable handoff", ownershipState: "owned", ownerBindingId: task.bindingId })]);
+    const saved = await saveMemoryTask(project, task.taskId, { chatId: "a", expectedRevision: task.stateRevision, checkpoint: { completedWork: "Implemented routing.", decisions: "Use explicit attach.", blockers: "Desktop acceptance remains.", openQuestions: "Which hook source?", nextAction: "Run acceptance." } });
+    const state = await readFile(path.join(task.taskPath, "TASK_STATE.md"), "utf8");
+    const chat = await readFile(path.join(task.taskPath, "chats", task.bindingId!, "MEMORY.md"), "utf8");
+    expect(saved.isOwner).toBe(true);
+    expect(state).toContain("Implemented routing.");
+    expect(state).toContain("Run acceptance.");
+    expect(chat).toContain("Structured Checkpoint");
+    expect((await saveMemoryTask(project, task.taskId, { chatId: "a", expectedRevision: saved.stateRevision, checkpoint: { completedWork: "Implemented routing.", nextAction: "Run acceptance." } })).stateRevision).toBe(saved.stateRevision);
+    expect((await resolveMemoryTask(project, task.taskId, { bindingId: task.bindingId! })).isOwner).toBe(true);
+    await expect(resolveMemoryTask(project, task.taskId, { bindingId: "00000000-0000-4000-8000-000000000000" })).rejects.toThrow("Unknown binding ID");
+    await expect(saveMemoryTask(project, task.taskId, { chatId: "a", expectedRevision: saved.stateRevision, checkpoint: { unexpected: "no" } as never })).rejects.toThrow("Unknown checkpoint field");
+    await expect(saveMemoryTask(project, task.taskId, { chatId: "a", expectedRevision: saved.stateRevision, checkpoint: { blockers: 1 } as never })).rejects.toThrow("must be a string");
+  });
+
+  it("creates a task with only relevant prior conversation context", async () => {
+    const { project } = await fixture();
+    const task = await startMemoryTask(project, { chatId: "summary", name: "Export validation", description: "Add validated export", initialContext: {
+      acceptanceCriteria: "Invalid rows are rejected.",
+      acceptedDecisions: "Keep current file format.",
+      constraints: "Preserve existing exports.",
+      findings: "Parser already reports row numbers.",
+      openQuestions: "None."
+    } });
+    const context = await readFile(path.join(task.taskPath, "TASK_CONTEXT.md"), "utf8");
+    expect(context).toContain("## Accepted Decisions\n\nKeep current file format.");
+    expect(context).toContain("## Constraints\n\nPreserve existing exports.");
+    expect(context).not.toContain("Record concrete acceptance evidence");
+    await expect(startMemoryTask(project, { chatId: "invalid", description: "Other", initialContext: { unrelated: "no" } as never })).rejects.toThrow("Unknown initial context field");
+  });
+
+  it("requires an explicit selector for historical cross-task associations and never mutates them", async () => {
+    const { project } = await fixture();
+    const first = await startMemoryTask(project, { chatId: "history", description: "First" });
+    const firstReleased = await saveMemoryTask(project, first.taskId, { chatId: "history", expectedRevision: first.stateRevision, release: true });
+    const second = await startMemoryTask(project, { chatId: "other", description: "Second" });
+    await saveMemoryTask(project, second.taskId, { chatId: "other", expectedRevision: second.stateRevision, release: true });
+    const secondMemory = path.join(second.taskPath, "chats", second.bindingId!, "MEMORY.md");
+    const historical = parseMarkdown(await readFile(secondMemory, "utf8"));
+    historical.data.runtime_chat_id = "history";
+    await writeFile(secondMemory, renderMarkdown(historical.data, historical.body));
+    await expect(resolveMemoryTask(project, undefined, { chatId: "history" })).rejects.toThrow("multiple historical");
+    const resolved = await resolveMemoryTask(project, first.taskId, { chatId: "history" });
+    expect(resolved.bindingStatus).toBe("released");
+    await expect(saveMemoryTask(project, first.taskId, { chatId: "history", expectedRevision: firstReleased.stateRevision })).rejects.toThrow("multiple historical");
   });
 
   it("hashes source edits while excluding its context and reuses an external checkout", async () => {

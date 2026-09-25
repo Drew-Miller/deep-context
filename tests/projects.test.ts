@@ -46,6 +46,22 @@ describe("project initialization", () => {
     expect(await readFile(project, "utf8")).toContain("User truth.");
   });
 
+  it("refreshes managed task routing without replacing authored instructions", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "deep-context-routing-refresh-"));
+    cleanup.push(home);
+    const root = await initProject(home, { name: "Example" });
+    const file = path.join(root, "AGENTS.md");
+    await writeFile(file, "# Authored startup\n\nKeep this exact paragraph.\n");
+    await initProject(home, { name: "Example" });
+    const refreshed = await readFile(file, "utf8");
+    expect(refreshed).toContain("Keep this exact paragraph.");
+    expect(refreshed).toContain("resolve-task --project <this context root> --allow-unbound --json");
+    await initProject(home, { name: "Example" });
+    expect(await readFile(file, "utf8")).toBe(refreshed);
+    await writeFile(file, refreshed.replace("<!-- deep-context:task-routing:end -->", ""));
+    await expect(initProject(home, { name: "Example" })).rejects.toThrow("Malformed");
+  });
+
   it("preserves an attached repository on empty reinit and rejects a conflicting attachment", async () => {
     const home = await mkdtemp(path.join(os.tmpdir(), "deep-context-home-"));
     cleanup.push(home);

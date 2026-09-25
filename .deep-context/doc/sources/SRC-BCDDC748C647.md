@@ -1,15 +1,8 @@
 ---
-id: SRC-BCDDC748C647
-path: tests/tasks.test.ts
-kind: text
-tracking: tracked
-disposition: review
-reason: nonignored working-tree evidence requires review
-sha256: d4bd273f280049dc97475267cd911121b59b56badd8a5d294c84950a870e4fd1
-origin: confirmed
-targets: []
+redirect_id: SRC-BCDDC748C647
+redirect_to: doc/sources/tests-tasks-test-ts--SRC-BCDDC748C647.md
 ---
 
-# tests/tasks.test.ts
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/tests/tasks.test.ts` only when its routing metadata makes it relevant.
+This record moved to [tests-tasks-test-ts--SRC-BCDDC748C647.md](./tests-tasks-test-ts--SRC-BCDDC748C647.md).

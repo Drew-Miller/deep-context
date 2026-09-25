@@ -10,9 +10,13 @@ This is a transient task workspace. Durable project truth must survive its delet
 4. Read relevant Backlog pitches and Active objectives, then load only the feature, contract, requirement, and Backlog bodies selected by the manifest.
 5. Edit source only within the checkout permitted by the attached repository's instructions.
 
+## Chat ownership
+
+Resolve the current chat association and follow requiredReads, including selected predecessor notes. One chat stays associated with this task after release or closure. Before source edits or shared task writes, refresh ownership and revision. A released chat restores context only; explicit continuation is required to resume, and another owner requires confirmed takeover. Read selected context through the manifest without loading every prior chat. Attachment does not change the working directory or grant source permissions.
+
 ## Checkpointing
 
-Before pausing, compaction, or handoff, record completed work, evidence, decisions, discoveries awaiting promotion, blockers, questions, and the exact next safe action in `TASK_STATE.md`.
+At milestones and before ending meaningful work turns, pausing, compaction, or handoff, record completed work, evidence, decisions, discoveries awaiting promotion, blockers, questions, and the exact next safe action with revision-guarded `save-task` in shared state and chat memory. Skip unchanged checkpoints and report failed saves. For an explicit fresh-chat handoff, checkpoint and release, then give the task UUID and project path in a resume prompt. Desktop archiving or deletion does not close or release the durable task; a replacement chat can recover the last saved checkpoint after confirmed takeover. Unsaved work cannot be recovered.
 
 ## Expansion
 

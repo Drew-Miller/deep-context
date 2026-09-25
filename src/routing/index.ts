@@ -1,6 +1,7 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { exists, readText } from "../core/fs.js";
+import { isForwarder } from "../core/records.js";
 import type { ContextLevel } from "../core/types.js";
 import { parseMarkdown } from "../frontmatter/index.js";
 import { decisionSchema, featureSchema, reportSchema, requirementSchema } from "../frontmatter/schemas.js";
@@ -26,7 +27,7 @@ async function featureRecords(projectRoot: string, directory: string, schema: ty
   const records = new Map<string, string[]>();
   for (const file of await canonicalFiles(directory)) {
     const document = parseMarkdown(await readText(file));
-    if (typeof document.data.id !== "string") continue;
+    if (isForwarder(document.data) || typeof document.data.id !== "string") continue;
     const data = schema.parse(document.data);
     for (const feature of data.features) {
       const files = records.get(feature) ?? [];
@@ -57,7 +58,7 @@ export async function selectFeatureContext(projectRoot: string, requested: Recor
       if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
       const file = path.join(requirementsRoot, entry.name);
       const parsed = parseMarkdown(await readText(file)).data;
-      if (typeof parsed.id !== "string") continue;
+      if (isForwarder(parsed) || typeof parsed.id !== "string") continue;
       const data = requirementSchema.parse(parsed);
       const relative = path.relative(projectRoot, file);
       requirementPaths.set(data.id, relative);

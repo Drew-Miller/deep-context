@@ -2,15 +2,17 @@ import { randomUUID } from "node:crypto";
 import { cp, lstat, readlink, realpath, readdir, rename, rm, rmdir, symlink } from "node:fs/promises";
 import path from "node:path";
 import { atomicWrite, createExclusive, ensureDir, exists, readText } from "../core/fs.js";
-import { projectRegistryPath, updateAgentsBlock } from "../config/index.js";
+import { projectRegistryPath, updateAgentsBlock, updateTaskRouting } from "../config/index.js";
 import { git, isGitRepository } from "../core/git.js";
 import type { ProjectState, SourceRecord } from "../core/types.js";
 import { parseMarkdown, renderMarkdown } from "../frontmatter/index.js";
+import { isForwarder, markdownRecords, recordFilename } from "../core/records.js";
 import { inventoryRepository } from "../importing/index.js";
 import { rebuildIndexes } from "../indexing/index.js";
 import { architectureTemplate, contextMap, projectAgents, projectContextAgent, projectOverview } from "./templateFiles.js";
 import { stringify } from "yaml";
 import { validateProject } from "../validation/index.js";
+import { assertNoPendingFilenameOperations } from "../migration/transactions.js";
 
 export function normalizeName(value: string): string {
   const normalized = value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -32,6 +34,7 @@ export async function initProject(home: string, options: { name: string; reposit
   const name = normalizeName(options.name);
   const requestedContext = path.resolve(options.contextPath ?? (options.repository ? path.join(await primaryCheckout(options.repository), ".deep-context") : path.join(home, name)));
   let projectRoot = await realpath(requestedContext).catch(() => requestedContext);
+  await assertNoPendingFilenameOperations(projectRoot);
   if (options.repository && projectRoot === await realpath(options.repository)) throw new Error("Context storage must not be the source repository root");
   let statePath = await machineStatePath(projectRoot);
   const previous = (await exists(statePath)) ? (JSON.parse(await readText(statePath)) as ProjectIdentity) : undefined;
@@ -61,13 +64,20 @@ export async function initProject(home: string, options: { name: string; reposit
     if (isContained(projectRoot, resolvedRepository)) await ignorePrivateContext(resolvedRepository);
     const inventory = await inventoryRepository(resolvedRepository, { excludedRoots: [projectRoot] });
     imported = { head: inventory.head, branch: inventory.branch, dirty: inventory.dirty, capturedAt: new Date().toISOString() };
-    for (const record of inventory.records) await writeSourceRecord(projectRoot, record);
+    const sourceFiles = new Map<string, string>();
+    for (const file of await markdownRecords(path.join(projectRoot, "doc", "sources"))) {
+      if (isForwarder(file.data) || typeof file.data.id !== "string") continue;
+      if (sourceFiles.has(file.data.id)) throw new Error(`Duplicate source record ID ${file.data.id}`);
+      sourceFiles.set(file.data.id, file.file);
+    }
+    for (const record of inventory.records) await writeSourceRecord(projectRoot, record, sourceFiles);
     await markAbsentSourceRecords(projectRoot, new Set(inventory.records.map((record) => record.path)));
   } else if (linkedRepository) {
     throw new Error(`Repository link exists without a repository identity at ${projectRoot}`);
   }
 
   await createExclusive(path.join(projectRoot, "AGENTS.md"), projectAgents(name));
+  await updateTaskRouting(path.join(projectRoot, "AGENTS.md"));
   await createExclusive(path.join(projectRoot, "CONTEXT_MAP.md"), contextMap(name));
   const projectId = await ensureCanonicalProjectId(path.join(projectRoot, "PROJECT.md"), name, repositoryPath, previous?.projectId ?? randomUUID());
   await createExclusive(path.join(projectRoot, "doc", "ARCHITECTURE.md"), architectureTemplate);
@@ -311,8 +321,9 @@ async function ignorePrivateContext(repository: string): Promise<void> {
   await atomicWrite(target, `${original.trimEnd()}${original.trim() ? "\n\n" : ""}${addition}`);
 }
 
-async function writeSourceRecord(projectRoot: string, record: SourceRecord): Promise<void> {
-  const target = path.join(projectRoot, "doc", "sources", `${record.id}.md`);
+async function writeSourceRecord(projectRoot: string, record: SourceRecord, sourceFiles: Map<string, string>): Promise<void> {
+  const target = sourceFiles.get(record.id) ?? path.join(projectRoot, "doc", "sources", recordFilename(record.id, record.path, "source"));
+  sourceFiles.set(record.id, target);
   let body: string | undefined;
   if (await exists(target)) {
     const document = parseMarkdown(await readText(target));
@@ -357,6 +368,7 @@ async function markAbsentSourceRecords(projectRoot: string, inventoriedPaths: Se
     const target = path.join(sourceRoot, entry.name);
     const document = parseMarkdown(await readText(target));
     const data = document.data;
+    if (isForwarder(data)) continue;
     if (typeof data.path !== "string" || inventoriedPaths.has(data.path) || data.tracking === "not-applicable" || data.disposition === "excluded" || data.tracking === "missing") continue;
     const history = Array.isArray(data.review_history) ? data.review_history : [];
     data.review_history = [...history, { disposition: data.disposition, reason: data.reason, sha256: data.sha256, tracking: data.tracking }];

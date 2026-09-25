@@ -1,14 +1,8 @@
 ---
-id: SRC-D5D41A85CACA
-path: dist/tests/importing.test.d.ts
-kind: text
-tracking: untracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-D5D41A85CACA
+redirect_to: doc/sources/dist-tests-importing-test-d-ts--SRC-D5D41A85CACA.md
 ---
 
-# dist/tests/importing.test.d.ts
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/tests/importing.test.d.ts` only when its routing metadata makes it relevant.
+This record moved to [dist-tests-importing-test-d-ts--SRC-D5D41A85CACA.md](./dist-tests-importing-test-d-ts--SRC-D5D41A85CACA.md).

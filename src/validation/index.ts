@@ -2,6 +2,7 @@ import { lstat, readdir, readlink, realpath } from "node:fs/promises";
 import path from "node:path";
 import { buildIndexes } from "../indexing/index.js";
 import { exists, readText, within } from "../core/fs.js";
+import { isForwarder } from "../core/records.js";
 import type { Diagnostic, ProjectState, SourceRecord } from "../core/types.js";
 import { parseMarkdown } from "../frontmatter/index.js";
 import { activeSchema, backlogSchema, decisionSchema, featureSchema, reportSchema, requirementSchema, shelfSchema, sourceSchema } from "../frontmatter/schemas.js";
@@ -9,6 +10,7 @@ import { inventoryRepository } from "../importing/index.js";
 import { validateMemoryTasks } from "../tasks/memory.js";
 import { machineStatePath } from "../projects/index.js";
 import { pendingContextOperations } from "../backlog/transactions.js";
+import { pendingFilenameOperations } from "../migration/transactions.js";
 
 async function files(directory: string, basename?: string): Promise<string[]> {
   if (!(await exists(directory))) return [];
@@ -48,6 +50,7 @@ export async function validateProject(projectRoot: string): Promise<Diagnostic[]
   const sourceFiles = await files(path.join(projectRoot, "doc/sources"));
   const decisionFiles = await files(path.join(projectRoot, "doc/decisions"));
   const reportFiles = await files(path.join(projectRoot, "doc/reports"));
+  await validateForwarders(projectRoot, [...requirementFiles, ...backlogFiles, ...activeFiles, ...sourceFiles, ...decisionFiles, ...reportFiles], diagnostics);
   const features = new Map<string, { file: string; data: ReturnType<typeof featureSchema.parse> }>();
   const requirements = new Map<string, { file: string; data: ReturnType<typeof requirementSchema.parse> }>();
 
@@ -56,6 +59,7 @@ export async function validateProject(projectRoot: string): Promise<Diagnostic[]
     for (const file of collection) {
       try {
         const data = parseMarkdown(await readText(file)).data;
+        if (isForwarder(data)) continue;
         const parsed = schema.parse(data);
         const id = String(parsed[idField]);
         const previous = seen.get(id);
@@ -74,7 +78,21 @@ export async function validateProject(projectRoot: string): Promise<Diagnostic[]
   await parseCollection(requirementFiles, requirementSchema, "id", requirements);
   await parseCollection(shelfFiles, shelfSchema, "id");
   const backlog = new Map<string, { file: string; data: ReturnType<typeof backlogSchema.parse> }>();
+  for (const file of backlogFiles) {
+    const data = parseMarkdown(await readText(file)).data;
+    if (isForwarder(data) || data.queue_position === undefined) continue;
+    if (typeof data.queue_position !== "number" || !Number.isSafeInteger(data.queue_position) || data.queue_position < 1) diagnostics.push({ level: "error", code: "invalid-queue-position", message: `Backlog queue position must be a positive safe integer: ${String(data.queue_position)}`, path: file });
+  }
   await parseCollection(backlogFiles, backlogSchema, "id", backlog);
+  const positions = new Map<number, string>();
+  for (const item of backlog.values()) {
+    if (item.data.status !== "proposed" && item.data.status !== "planned") continue;
+    const position = item.data.queue_position;
+    if (position === undefined) continue;
+    const previous = positions.get(position);
+    if (previous) diagnostics.push({ level: "error", code: "duplicate-queue-position", message: `Backlog queue position ${position} is shared by ${previous} and ${item.data.id}`, path: item.file });
+    else positions.set(position, item.data.id);
+  }
   const active = new Map<string, { file: string; data: ReturnType<typeof activeSchema.parse> }>();
   await parseCollection(activeFiles, activeSchema, "id", active);
   for (const item of backlog.values()) {
@@ -98,6 +116,7 @@ export async function validateProject(projectRoot: string): Promise<Diagnostic[]
     }
   }
   if ((await pendingContextOperations(projectRoot)).length) diagnostics.push({ level: "error", code: "pending-context-operation", message: "Backlog context operation needs repair-context" });
+  if ((await pendingFilenameOperations(projectRoot)).length) diagnostics.push({ level: "error", code: "pending-filename-operation", message: "Filename operation needs repair-filenames" });
   const sources = new Map<string, { file: string; data: ReturnType<typeof sourceSchema.parse> }>();
   await parseCollection(sourceFiles, sourceSchema, "id", sources);
   const decisions = new Map<string, { file: string; data: ReturnType<typeof decisionSchema.parse> }>();
@@ -152,6 +171,7 @@ async function parseStructuredCollection<T extends { id: string }>(
   for (const file of collection) {
     try {
       const data = parseMarkdown(await readText(file)).data;
+      if (isForwarder(data)) continue;
       if (typeof data.id !== "string") {
         if (!allowLegacy) diagnostics.push({ level: "error", code: "invalid-frontmatter", message: "Canonical decision requires an id and structured frontmatter", path: file });
         continue;
@@ -162,6 +182,34 @@ async function parseStructuredCollection<T extends { id: string }>(
       else accepted.set(parsed.id, { file, data: parsed });
     } catch (error) {
       diagnostics.push({ level: "error", code: "invalid-frontmatter", message: error instanceof Error ? error.message : String(error), path: file });
+    }
+  }
+}
+
+async function validateForwarders(projectRoot: string, candidates: string[], diagnostics: Diagnostic[]): Promise<void> {
+  for (const file of candidates) {
+    let data: Record<string, unknown>;
+    try { data = parseMarkdown(await readText(file)).data; }
+    catch { continue; }
+    if (!isForwarder(data)) continue;
+    const reference = data.redirect_to;
+    const identity = data.redirect_id;
+    if (typeof reference !== "string" || typeof identity !== "string" || Object.hasOwn(data, "id")) {
+      diagnostics.push({ level: "error", code: "invalid-forwarder", message: "Forwarder requires redirect_to and redirect_id strings and must not declare a canonical id", path: file });
+      continue;
+    }
+    const target = path.resolve(projectRoot, reference);
+    if (target === file || path.dirname(target) !== path.dirname(file) || !within(projectRoot, target)) {
+      diagnostics.push({ level: "error", code: "invalid-forwarder", message: `Forwarder leaves its record collection: ${reference}`, path: file });
+      continue;
+    }
+    try {
+      if (!(await lstat(target)).isFile()) throw new Error("target is not a regular file");
+      const canonical = parseMarkdown(await readText(target)).data;
+      if (isForwarder(canonical)) throw new Error("target is another forwarder");
+      if (canonical.id !== identity) throw new Error(`target ID differs from ${identity}`);
+    } catch (error) {
+      diagnostics.push({ level: "error", code: "broken-forwarder", message: `Forwarder target is invalid: ${error instanceof Error ? error.message : String(error)}`, path: file });
     }
   }
 }

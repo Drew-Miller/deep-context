@@ -1,14 +1,8 @@
 ---
-id: SRC-0E4D0EA796A8
-path: dist/src/importing/index.d.ts
-kind: text
-tracking: untracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-0E4D0EA796A8
+redirect_to: doc/sources/dist-src-importing-index-d-ts--SRC-0E4D0EA796A8.md
 ---
 
-# dist/src/importing/index.d.ts
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/src/importing/index.d.ts` only when its routing metadata makes it relevant.
+This record moved to [dist-src-importing-index-d-ts--SRC-0E4D0EA796A8.md](./dist-src-importing-index-d-ts--SRC-0E4D0EA796A8.md).

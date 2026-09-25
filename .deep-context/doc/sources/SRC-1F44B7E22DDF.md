@@ -1,14 +1,8 @@
 ---
-id: SRC-1F44B7E22DDF
-path: dist/src/core/names.js
-kind: text
-tracking: untracked
-disposition: excluded
-reason: generated, dependency, or build path
-origin: confirmed
-targets: []
+redirect_id: SRC-1F44B7E22DDF
+redirect_to: doc/sources/dist-src-core-names-js--SRC-1F44B7E22DDF.md
 ---
 
-# dist/src/core/names.js
+# Moved
 
-This record preserves import provenance. Read the source body through `repo/dist/src/core/names.js` only when its routing metadata makes it relevant.
+This record moved to [dist-src-core-names-js--SRC-1F44B7E22DDF.md](./dist-src-core-names-js--SRC-1F44B7E22DDF.md).

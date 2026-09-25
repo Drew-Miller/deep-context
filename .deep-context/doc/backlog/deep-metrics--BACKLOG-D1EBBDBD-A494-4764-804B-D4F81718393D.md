@@ -1,0 +1,37 @@
+---
+id: BACKLOG-D1EBBDBD-A494-4764-804B-D4F81718393D
+title: deep-metrics
+pitch: "Measure context and usage efficiency while preserving accurate long-term
+  product requirements, features, decisions, and completed-work history.
+  Accepted direction: inexpensive local statistics plus optional benchmarks;
+  distinguish measured usage from estimates, unavailable counters, and
+  comparative savings. Define desktop token access, realistic baselines,
+  maintenance overhead, and documentation recovery accuracy before implementing
+  metrics."
+status: active
+features:
+  - metrics
+  - routing
+  - tasks
+  - closure
+tokens: []
+provenance: User-approved deep-metrics task setup plan in Codex chat
+  01a0cc1b-27a2-7311-8a8c-2b2b403e750f on 2026-09-23; task
+  a40ae7ea-23be-4f14-b439-e267cc807944.
+related:
+  - BACKLOG-A5FE803F-4751-424F-AC18-95E63B15A02D
+conflicts: []
+status_history:
+  - from: proposed
+    to: active
+    activation: ACTIVE-94EE748B-ECD7-495E-B757-9D9417A16F88
+activation: doc/active/deep-metrics--ACTIVE-94EE748B-ECD7-495E-B757-9D9417A16F88.md
+---
+
+# deep-metrics
+
+Measure context and usage efficiency while preserving accurate long-term product requirements, features, decisions, and completed-work history. Accepted direction: inexpensive local statistics plus optional benchmarks; distinguish measured usage from estimates, unavailable counters, and comparative savings. Define desktop token access, realistic baselines, maintenance overhead, and documentation recovery accuracy before implementing metrics.
+
+## Planning notes
+
+- Implementation was authorized in the same Codex chat after task setup. Requirements REQ-DC-039 through REQ-DC-041 and decision DEC-DC-003 record the accepted first version.
