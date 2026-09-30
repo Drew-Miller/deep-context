@@ -81,3 +81,13 @@ export const sourceSchema = z.object({
   origin: z.enum(["confirmed", "inferred"]),
   targets: stringList,
 }).passthrough();
+
+export const workItemSchema = z.object({
+  id: z.string().min(1), title: z.string().min(1),
+  status: z.enum(["proposed", "planned", "active", "blocked", "done", "merged"]),
+  pitch: z.string().optional(), objective: z.string().optional(), provenance: z.string().optional(),
+  features: stringList, tokens: stringList, related: stringList, conflicts: stringList,
+  aliases: stringList, tasks: stringList, requirements: stringList, decisions: stringList,
+  order: z.number().int().positive().safe().optional(),
+  outcome: z.string().optional(), open_gates: stringList, merged_into: z.string().optional(),
+}).passthrough();

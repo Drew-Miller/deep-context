@@ -1,3 +1,4 @@
+import { layoutPaths } from "../core/layout.js";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { lstat, readdir } from "node:fs/promises";
@@ -13,7 +14,7 @@ import { validateProject } from "../validation/index.js";
 const ROUTING_FILES = ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md", "doc/FEATURES.md", "doc/REQUIREMENTS.md", "doc/BACKLOG.md", "doc/ACTIVE.md", "doc/DECISIONS.md", "doc/REPORTS.md"];
 
 async function canonicalMarkdownFiles(directory: string): Promise<string[]> {
-  return (await markdownRecords(directory)).filter(({ data }) => !isForwarder(data)).map(({ file }) => file);
+  return (await markdownRecords(directory)).filter(({ data }) => !isForwarder(data)).filter(({ file }) => path.basename(file) !== "INDEX.md").map(({ file }) => file);
 }
 
 async function sizeOf(root: string, relative: string): Promise<number> {
@@ -74,20 +75,21 @@ export async function readCodexUsage(file: string): Promise<UsageTotals> {
 }
 
 export async function projectStats(root: string, feature?: string, level: ContextLevel = "feature", usageFile?: string) {
-  const doc = path.join(root, "doc");
+  const layout = layoutPaths(root);
+  const doc = layout.docs;
   const featureDocs = await canonicalMarkdownFiles(path.join(doc, "features"));
-  const featureFiles = featureDocs.filter((file) => path.basename(file) === "FEATURE.md");
+  const featureFiles = featureDocs.filter((file) => path.basename(file) === layout.featureFile);
   const requirements = await canonicalMarkdownFiles(path.join(doc, "requirements"));
   const decisions = await canonicalMarkdownFiles(path.join(doc, "decisions"));
   const reports = await canonicalMarkdownFiles(path.join(doc, "reports"));
-  const backlog = await canonicalMarkdownFiles(path.join(doc, "backlog"));
-  const active = await canonicalMarkdownFiles(path.join(doc, "active"));
-  const sources = await canonicalMarkdownFiles(path.join(doc, "sources"));
+  const backlog = await canonicalMarkdownFiles(layout.work);
+  const active = layout.compact ? backlog : await canonicalMarkdownFiles(layout.active);
+  const sources = await canonicalMarkdownFiles(layout.sources);
   const selected = feature ? await selectFeatureContext(root, { [feature]: level }) : null;
   const selectedBytes = selected ? (await Promise.all(selected.files.map((file) => sizeOf(root, file)))).reduce((a, b) => a + b, 0) : null;
   const routableFiles = [...featureDocs, ...requirements, ...decisions, ...reports];
   const routableBytes = (await Promise.all(routableFiles.map((file) => sizeOf(root, path.relative(root, file))))).reduce((a, b) => a + b, 0);
-  const routingBytes = (await Promise.all(ROUTING_FILES.map(async (file) => await exists(path.join(root, file)) ? sizeOf(root, file) : 0))).reduce((a, b) => a + b, 0);
+  const routingBytes = (await Promise.all((layout.compact ? ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md", ...Object.values(layout.indexes).map(file => path.relative(root, file))] : ROUTING_FILES).map(async (file) => await exists(path.join(root, file)) ? sizeOf(root, file) : 0))).reduce((a, b) => a + b, 0);
   const diagnostics = await validateProject(root);
   const errorsByCode: Record<string, number> = {};
   for (const item of diagnostics) if (item.level === "error") errorsByCode[item.code] = (errorsByCode[item.code] ?? 0) + 1;
@@ -104,7 +106,7 @@ export async function projectStats(root: string, feature?: string, level: Contex
     kind: "deep-context-stats" as const,
     generatedAt: new Date().toISOString(),
     projectRoot: root,
-    documents: { features: featureFiles.length, requirements: requirements.length, requirementsWithFeature: linkedRequirements, decisions: decisions.length, reports: reports.length, reportsWithFeature: linkedReports, closureReports, backlog: backlog.length, active: await countStatus(active, "active"), completedObjectives: await countStatus(active, "done"), sourcesNeedingReview },
+    documents: { features: featureFiles.length, requirements: requirements.length, requirementsWithFeature: linkedRequirements, decisions: decisions.length, reports: reports.length, reportsWithFeature: linkedReports, closureReports, workItems: backlog.length, backlog: layout.compact ? await countStatus(backlog, "proposed") + await countStatus(backlog, "planned") : backlog.length, active: await countStatus(active, "active"), completedObjectives: await countStatus(active, "done"), sourcesNeedingReview },
     health: { valid: diagnostics.every((item) => item.level !== "error"), errorCount: Object.values(errorsByCode).reduce((a, b) => a + b, 0), errorsByCode },
     context: { feature: feature ?? null, level: feature ? level : null, selectedFiles: selected?.files ?? [], selectedBytes, estimatedSelectedTokens: selectedBytes === null ? null : estimateTokens(selectedBytes), routableCorpusFiles: routableFiles.length, routableCorpusBytes: routableBytes, routingBytes, estimatedRoutingTokens: estimateTokens(routingBytes), selectionReductionPercent: selectedBytes === null || !routableBytes ? null : Math.round((1 - (selectedBytes + routingBytes) / (routableBytes + routingBytes)) * 1000) / 10 },
     usage: usageFile ? await readCodexUsage(usageFile) : null,

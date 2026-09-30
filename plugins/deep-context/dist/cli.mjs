@@ -1211,7 +1211,7 @@ var require_command = __commonJS({
   "node_modules/.pnpm/commander@14.0.3/node_modules/commander/lib/command.js"(exports) {
     var EventEmitter = __require("node:events").EventEmitter;
     var childProcess = __require("node:child_process");
-    var path24 = __require("node:path");
+    var path27 = __require("node:path");
     var fs = __require("node:fs");
     var process2 = __require("node:process");
     var { Argument: Argument2, humanReadableArgName } = require_argument();
@@ -2224,9 +2224,9 @@ Expecting one of '${allowedValues.join("', '")}'`);
         let launchWithNode = false;
         const sourceExt = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
         function findFile(baseDir, baseName) {
-          const localBin = path24.resolve(baseDir, baseName);
+          const localBin = path27.resolve(baseDir, baseName);
           if (fs.existsSync(localBin)) return localBin;
-          if (sourceExt.includes(path24.extname(baseName))) return void 0;
+          if (sourceExt.includes(path27.extname(baseName))) return void 0;
           const foundExt = sourceExt.find(
             (ext) => fs.existsSync(`${localBin}${ext}`)
           );
@@ -2244,17 +2244,17 @@ Expecting one of '${allowedValues.join("', '")}'`);
           } catch {
             resolvedScriptPath = this._scriptPath;
           }
-          executableDir = path24.resolve(
-            path24.dirname(resolvedScriptPath),
+          executableDir = path27.resolve(
+            path27.dirname(resolvedScriptPath),
             executableDir
           );
         }
         if (executableDir) {
           let localFile = findFile(executableDir, executableFile);
           if (!localFile && !subcommand._executableFile && this._scriptPath) {
-            const legacyName = path24.basename(
+            const legacyName = path27.basename(
               this._scriptPath,
-              path24.extname(this._scriptPath)
+              path27.extname(this._scriptPath)
             );
             if (legacyName !== this._name) {
               localFile = findFile(
@@ -2265,7 +2265,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
           }
           executableFile = localFile || executableFile;
         }
-        launchWithNode = sourceExt.includes(path24.extname(executableFile));
+        launchWithNode = sourceExt.includes(path27.extname(executableFile));
         let proc;
         if (process2.platform !== "win32") {
           if (launchWithNode) {
@@ -3180,7 +3180,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @return {Command}
        */
       nameFromFilename(filename) {
-        this._name = path24.basename(filename, path24.extname(filename));
+        this._name = path27.basename(filename, path27.extname(filename));
         return this;
       }
       /**
@@ -3194,9 +3194,9 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @param {string} [path]
        * @return {(string|null|Command)}
        */
-      executableDir(path25) {
-        if (path25 === void 0) return this._executableDir;
-        this._executableDir = path25;
+      executableDir(path28) {
+        if (path28 === void 0) return this._executableDir;
+        this._executableDir = path28;
         return this;
       }
       /**
@@ -3612,11 +3612,70 @@ Follow returned requiredReads, then selected manifest context. A successful unbo
 
 One chat belongs to one task even after release or closure. A released association restores context without acquiring ownership. Before source edits or shared task writes, resolve ownership and current revision. A non-owner must explicitly resume; another owner requires confirmed takeover. Closed tasks remain closed. Task attachment neither changes the source working directory nor grants source edit permission.
 
-Checkpoint meaningful decisions, completed work and evidence, blockers, open questions, and exact next action at milestones and before ending work turns; skip unchanged checkpoints. Use save-task with owner identity and expected revision; optional --checkpoint-file supplies completedWork, decisions, blockers, openQuestions and nextAction as strings. Preserve existing relevant findings when updating sections. Report failed saves. Read Backlog and Active indexes at scope changes and load only relevant bodies.
+Checkpoint meaningful decisions, completed work and evidence, blockers, open questions, and exact next action at milestones and before ending work turns; skip unchanged checkpoints. Use save-task with owner identity and expected revision; optional --checkpoint-file supplies completedWork, decisions, blockers, openQuestions and nextAction as strings. Preserve existing relevant findings when updating sections. Report failed saves. Read work/INDEX.md at scope changes and load only relevant bodies.
 
 For an explicit fresh-chat handoff, checkpoint and release ownership, then give a resume prompt with the task UUID and project path. Desktop archive/delete does not release ownership or close task memory. A replacement chat may take over after confirmation and recover from the last saved checkpoint. Automatic care is agent behavior, not a lifecycle hook; interruption can lose unsaved work.
 
 ${TASK_END}`;
+  }
+});
+
+// src/core/layout.ts
+import { existsSync, lstatSync, readFileSync } from "node:fs";
+import path3 from "node:path";
+function layoutPaths(root) {
+  root = path3.resolve(root);
+  const at = (name) => path3.join(root, name);
+  const journal = at(".local/layout-operation.json");
+  if (existsSync(journal) && JSON.parse(readFileSync(journal, "utf8")).status !== "committed") throw new Error("Layout migration is incomplete; run repair-layout");
+  let marker;
+  if (existsSync(at(".local/state.json"))) {
+    const state = JSON.parse(readFileSync(at(".local/state.json"), "utf8"));
+    marker = state.layout ?? state.manualLayout;
+    if (marker !== void 0 && marker !== "compact-v1" && marker !== "legacy") throw new Error(`Unsupported context layout: ${String(marker)}`);
+  }
+  const legacy = marker === "legacy" || existsSync(at("doc"));
+  const compact = marker === "compact-v1" || ["work/items", "sources/records", "docs/architecture.md", "docs/features", "docs/requirements", "docs/decisions", "docs/reports"].some((name) => existsSync(at(name)));
+  if (legacy && compact) throw new Error("Mixed canonical layouts; inspect or repair layout migration before continuing");
+  const kind = legacy ? "legacy" : "compact";
+  const isCompact = kind === "compact";
+  const docs = at(isCompact ? "docs" : "doc");
+  const collection = (name) => path3.join(docs, name);
+  for (const entry of [docs, at("work"), at("sources"), at("tasks")]) {
+    if (existsSync(entry) && lstatSync(entry).isSymbolicLink()) throw new Error(`Canonical storage cannot be a symlink: ${entry}`);
+  }
+  const features = collection("features"), requirements = collection("requirements"), decisions = collection("decisions"), reports = collection("reports");
+  const work = at(isCompact ? "work/items" : "doc/backlog");
+  return {
+    kind,
+    compact: isCompact,
+    docs,
+    features,
+    requirements,
+    decisions,
+    reports,
+    sources: at(isCompact ? "sources/records" : "doc/sources"),
+    work,
+    backlog: work,
+    active: isCompact ? work : collection("active"),
+    architecture: collection(isCompact ? "architecture.md" : "ARCHITECTURE.md"),
+    featureFile: isCompact ? "overview.md" : "FEATURE.md",
+    contractFile: isCompact ? "contracts.md" : "CONTRACTS.md",
+    featureOverview: isCompact ? "overview.md" : "FEATURE.md",
+    featureContracts: isCompact ? "contracts.md" : "CONTRACTS.md",
+    indexes: {
+      features: isCompact ? path3.join(features, "INDEX.md") : collection("FEATURES.md"),
+      requirements: isCompact ? path3.join(requirements, "INDEX.md") : collection("REQUIREMENTS.md"),
+      decisions: isCompact ? path3.join(decisions, "INDEX.md") : collection("DECISIONS.md"),
+      reports: isCompact ? path3.join(reports, "INDEX.md") : collection("REPORTS.md"),
+      sources: at(isCompact ? "sources/INDEX.md" : "doc/SOURCES.md"),
+      work: at(isCompact ? "work/INDEX.md" : "doc/BACKLOG.md")
+    }
+  };
+}
+var init_layout = __esm({
+  "src/core/layout.ts"() {
+    "use strict";
   }
 });
 
@@ -3697,17 +3756,17 @@ var require_visit = __commonJS({
     visit2.BREAK = BREAK;
     visit2.SKIP = SKIP;
     visit2.REMOVE = REMOVE;
-    function visit_(key, node2, visitor, path24) {
-      const ctrl = callVisitor(key, node2, visitor, path24);
+    function visit_(key, node2, visitor, path27) {
+      const ctrl = callVisitor(key, node2, visitor, path27);
       if (identity2.isNode(ctrl) || identity2.isPair(ctrl)) {
-        replaceNode(key, path24, ctrl);
-        return visit_(key, ctrl, visitor, path24);
+        replaceNode(key, path27, ctrl);
+        return visit_(key, ctrl, visitor, path27);
       }
       if (typeof ctrl !== "symbol") {
         if (identity2.isCollection(node2)) {
-          path24 = Object.freeze(path24.concat(node2));
+          path27 = Object.freeze(path27.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = visit_(i, node2.items[i], visitor, path24);
+            const ci = visit_(i, node2.items[i], visitor, path27);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -3718,13 +3777,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity2.isPair(node2)) {
-          path24 = Object.freeze(path24.concat(node2));
-          const ck = visit_("key", node2.key, visitor, path24);
+          path27 = Object.freeze(path27.concat(node2));
+          const ck = visit_("key", node2.key, visitor, path27);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = visit_("value", node2.value, visitor, path24);
+          const cv = visit_("value", node2.value, visitor, path27);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -3745,17 +3804,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node2, visitor, path24) {
-      const ctrl = await callVisitor(key, node2, visitor, path24);
+    async function visitAsync_(key, node2, visitor, path27) {
+      const ctrl = await callVisitor(key, node2, visitor, path27);
       if (identity2.isNode(ctrl) || identity2.isPair(ctrl)) {
-        replaceNode(key, path24, ctrl);
-        return visitAsync_(key, ctrl, visitor, path24);
+        replaceNode(key, path27, ctrl);
+        return visitAsync_(key, ctrl, visitor, path27);
       }
       if (typeof ctrl !== "symbol") {
         if (identity2.isCollection(node2)) {
-          path24 = Object.freeze(path24.concat(node2));
+          path27 = Object.freeze(path27.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = await visitAsync_(i, node2.items[i], visitor, path24);
+            const ci = await visitAsync_(i, node2.items[i], visitor, path27);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -3766,13 +3825,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity2.isPair(node2)) {
-          path24 = Object.freeze(path24.concat(node2));
-          const ck = await visitAsync_("key", node2.key, visitor, path24);
+          path27 = Object.freeze(path27.concat(node2));
+          const ck = await visitAsync_("key", node2.key, visitor, path27);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = await visitAsync_("value", node2.value, visitor, path24);
+          const cv = await visitAsync_("value", node2.value, visitor, path27);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -3799,23 +3858,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node2, visitor, path24) {
+    function callVisitor(key, node2, visitor, path27) {
       if (typeof visitor === "function")
-        return visitor(key, node2, path24);
+        return visitor(key, node2, path27);
       if (identity2.isMap(node2))
-        return visitor.Map?.(key, node2, path24);
+        return visitor.Map?.(key, node2, path27);
       if (identity2.isSeq(node2))
-        return visitor.Seq?.(key, node2, path24);
+        return visitor.Seq?.(key, node2, path27);
       if (identity2.isPair(node2))
-        return visitor.Pair?.(key, node2, path24);
+        return visitor.Pair?.(key, node2, path27);
       if (identity2.isScalar(node2))
-        return visitor.Scalar?.(key, node2, path24);
+        return visitor.Scalar?.(key, node2, path27);
       if (identity2.isAlias(node2))
-        return visitor.Alias?.(key, node2, path24);
+        return visitor.Alias?.(key, node2, path27);
       return void 0;
     }
-    function replaceNode(key, path24, node2) {
-      const parent = path24[path24.length - 1];
+    function replaceNode(key, path27, node2) {
+      const parent = path27[path27.length - 1];
       if (identity2.isCollection(parent)) {
         parent.items[key] = node2;
       } else if (identity2.isPair(parent)) {
@@ -4427,10 +4486,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity2 = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path24, value) {
+    function collectionFromPath(schema, path27, value) {
       let v = value;
-      for (let i = path24.length - 1; i >= 0; --i) {
-        const k = path24[i];
+      for (let i = path27.length - 1; i >= 0; --i) {
+        const k = path27[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -4449,7 +4508,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path24) => path24 == null || typeof path24 === "object" && !!path24[Symbol.iterator]().next().done;
+    var isEmptyPath = (path27) => path27 == null || typeof path27 === "object" && !!path27[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -4479,11 +4538,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path24, value) {
-        if (isEmptyPath(path24))
+      addIn(path27, value) {
+        if (isEmptyPath(path27))
           this.add(value);
         else {
-          const [key, ...rest] = path24;
+          const [key, ...rest] = path27;
           const node2 = this.get(key, true);
           if (identity2.isCollection(node2))
             node2.addIn(rest, value);
@@ -4497,8 +4556,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path24) {
-        const [key, ...rest] = path24;
+      deleteIn(path27) {
+        const [key, ...rest] = path27;
         if (rest.length === 0)
           return this.delete(key);
         const node2 = this.get(key, true);
@@ -4512,8 +4571,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path24, keepScalar) {
-        const [key, ...rest] = path24;
+      getIn(path27, keepScalar) {
+        const [key, ...rest] = path27;
         const node2 = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity2.isScalar(node2) ? node2.value : node2;
@@ -4531,8 +4590,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path24) {
-        const [key, ...rest] = path24;
+      hasIn(path27) {
+        const [key, ...rest] = path27;
         if (rest.length === 0)
           return this.has(key);
         const node2 = this.get(key, true);
@@ -4542,8 +4601,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path24, value) {
-        const [key, ...rest] = path24;
+      setIn(path27, value) {
+        const [key, ...rest] = path27;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -7058,9 +7117,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path24, value) {
+      addIn(path27, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path24, value);
+          this.contents.addIn(path27, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -7135,14 +7194,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path24) {
-        if (Collection.isEmptyPath(path24)) {
+      deleteIn(path27) {
+        if (Collection.isEmptyPath(path27)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path24) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path27) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -7157,10 +7216,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path24, keepScalar) {
-        if (Collection.isEmptyPath(path24))
+      getIn(path27, keepScalar) {
+        if (Collection.isEmptyPath(path27))
           return !keepScalar && identity2.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity2.isCollection(this.contents) ? this.contents.getIn(path24, keepScalar) : void 0;
+        return identity2.isCollection(this.contents) ? this.contents.getIn(path27, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -7171,10 +7230,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path24) {
-        if (Collection.isEmptyPath(path24))
+      hasIn(path27) {
+        if (Collection.isEmptyPath(path27))
           return this.contents !== void 0;
-        return identity2.isCollection(this.contents) ? this.contents.hasIn(path24) : false;
+        return identity2.isCollection(this.contents) ? this.contents.hasIn(path27) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -7191,13 +7250,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path24, value) {
-        if (Collection.isEmptyPath(path24)) {
+      setIn(path27, value) {
+        if (Collection.isEmptyPath(path27)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path24), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path27), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path24, value);
+          this.contents.setIn(path27, value);
         }
       }
       /**
@@ -9158,9 +9217,9 @@ var require_cst_visit = __commonJS({
     visit2.BREAK = BREAK;
     visit2.SKIP = SKIP;
     visit2.REMOVE = REMOVE;
-    visit2.itemAtPath = (cst, path24) => {
+    visit2.itemAtPath = (cst, path27) => {
       let item = cst;
-      for (const [field, index] of path24) {
+      for (const [field, index] of path27) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index];
@@ -9169,23 +9228,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit2.parentCollection = (cst, path24) => {
-      const parent = visit2.itemAtPath(cst, path24.slice(0, -1));
-      const field = path24[path24.length - 1][0];
+    visit2.parentCollection = (cst, path27) => {
+      const parent = visit2.itemAtPath(cst, path27.slice(0, -1));
+      const field = path27[path27.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path24, item, visitor) {
-      let ctrl = visitor(item, path24);
+    function _visit(path27, item, visitor) {
+      let ctrl = visitor(item, path27);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path24.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path27.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -9196,10 +9255,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path24);
+            ctrl = ctrl(item, path27);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path24) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path27) : ctrl;
     }
     exports.visit = visit2;
   }
@@ -10977,7 +11036,7 @@ var init_frontmatter = __esm({
 
 // src/core/records.ts
 import { readdir } from "node:fs/promises";
-import path3 from "node:path";
+import path4 from "node:path";
 function readableSlug(value, fallback) {
   const slug = value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80).replace(/-+$/g, "");
   return slug || fallback;
@@ -10992,7 +11051,7 @@ async function markdownRecords(directory) {
   if (!await exists(directory)) return [];
   const output3 = [];
   for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
-    const file2 = path3.join(directory, entry.name);
+    const file2 = path4.join(directory, entry.name);
     if (entry.isDirectory()) output3.push(...await markdownRecords(file2));
     else if (entry.isFile() && entry.name.endsWith(".md")) {
       const document = parseMarkdown(await readText(file2));
@@ -11002,12 +11061,22 @@ async function markdownRecords(directory) {
   return output3;
 }
 async function canonicalRecordById(directory, id) {
-  const matches = (await markdownRecords(directory)).filter(({ data }) => !isForwarder(data) && data.id === id);
+  const matches = (await markdownRecords(directory)).filter(({ data }) => !isForwarder(data) && (data.id === id || Array.isArray(data.aliases) && data.aliases.includes(id)));
   if (matches.length > 1) throw new Error(`Duplicate record ID ${id}`);
   return matches[0]?.file;
 }
 function isForwarder(data) {
   return Object.hasOwn(data, "redirect_to");
+}
+async function newRecordPath(directory, id, label, fallback) {
+  const existing = await canonicalRecordById(directory, id);
+  if (existing) return existing;
+  const names = new Set((await exists(directory) ? await readdir(directory) : []).map((name) => name.toLowerCase()));
+  const slug = readableSlug(label, fallback);
+  for (let n = 1; ; n++) {
+    const name = `${slug}${n === 1 ? "" : `-${n}`}.md`;
+    if (!names.has(name.toLowerCase())) return path4.join(directory, name);
+  }
 }
 var recordCollections;
 var init_records = __esm({
@@ -11021,17 +11090,17 @@ var init_records = __esm({
 
 // src/indexing/index.ts
 import { readdir as readdir2 } from "node:fs/promises";
-import path4 from "node:path";
+import path5 from "node:path";
 async function markdownFiles(directory) {
   if (!await exists(directory)) return [];
   const entries = await readdir2(directory, { withFileTypes: true });
-  const files2 = [];
+  const files3 = [];
   for (const entry of entries) {
-    const target = path4.join(directory, entry.name);
-    if (entry.isDirectory()) files2.push(...await markdownFiles(target));
-    else if (entry.isFile() && entry.name.endsWith(".md")) files2.push(target);
+    const target = path5.join(directory, entry.name);
+    if (entry.isDirectory()) files3.push(...await markdownFiles(target));
+    else if (entry.isFile() && entry.name.endsWith(".md")) files3.push(target);
   }
-  return files2.sort();
+  return files3.sort();
 }
 function cell(value) {
   if (Array.isArray(value)) return value.map(String).join(", ").replaceAll("|", "\\|");
@@ -11039,11 +11108,11 @@ function cell(value) {
   return String(value ?? "\u2014").replaceAll("|", "\\|").replaceAll("\n", " ");
 }
 async function records(directory, accept) {
-  const root = path4.dirname(directory);
-  const files2 = (await markdownFiles(directory)).filter((file2) => !accept || accept(file2));
-  return (await Promise.all(files2.map(async (file2) => {
+  const root = path5.dirname(directory);
+  const files3 = (await markdownFiles(directory)).filter((file2) => !accept || accept(file2));
+  return (await Promise.all(files3.map(async (file2) => {
     const document = parseMarkdown(await readText(file2));
-    return { relative: path4.relative(root, file2), data: document.data, body: document.body };
+    return { relative: path5.relative(root, file2), data: document.data, body: document.body };
   }))).filter(({ data }) => !isForwarder(data)).sort((a, b) => String(a.data.id ?? a.data.name ?? a.relative).localeCompare(String(b.data.id ?? b.data.name ?? b.relative)));
 }
 function backlogLane(status) {
@@ -11067,29 +11136,31 @@ function laneLabel(status) {
 function legacyReportMetadata(relative, body) {
   const heading = body.match(/^#\s+(.+)$/m)?.[1]?.trim();
   return {
-    id: `REPORT-${relative.replace(new RegExp(`^reports\\${path4.sep}`), "").replace(/\.md$/, "").replaceAll(path4.sep, "-").replace(/[^A-Za-z0-9-]/g, "-").toUpperCase()}`,
-    title: heading || path4.basename(relative, ".md"),
+    id: `REPORT-${relative.replace(new RegExp(`^reports\\${path5.sep}`), "").replace(/\.md$/, "").replaceAll(path5.sep, "-").replace(/[^A-Za-z0-9-]/g, "-").toUpperCase()}`,
+    title: heading || path5.basename(relative, ".md"),
     status: "unclassified",
     features: []
   };
 }
 async function buildIndexes(projectRoot) {
-  const doc = path4.join(projectRoot, "doc");
-  const features = await records(path4.join(doc, "features"), (file2) => path4.basename(file2) === "FEATURE.md");
-  const requirements = await records(path4.join(doc, "requirements"));
-  const backlog = await records(path4.join(doc, "backlog"));
-  const active = await records(path4.join(doc, "active"));
-  const decisions = (await records(path4.join(doc, "decisions"))).filter(({ data }) => typeof data.id === "string");
-  const reports = (await records(path4.join(doc, "reports"))).map(({ relative, data, body }) => ({ relative, data: typeof data.id === "string" ? data : legacyReportMetadata(relative, body) }));
-  const sources = await records(path4.join(doc, "sources"));
+  const layout = layoutPaths(projectRoot);
+  if (layout.compact) return buildCompactIndexes(projectRoot);
+  const doc = layout.docs;
+  const features = await records(path5.join(doc, "features"), (file2) => path5.basename(file2) === "FEATURE.md");
+  const requirements = await records(path5.join(doc, "requirements"));
+  const backlog = await records(path5.join(doc, "backlog"));
+  const active = await records(path5.join(doc, "active"));
+  const decisions = (await records(path5.join(doc, "decisions"))).filter(({ data }) => typeof data.id === "string");
+  const reports = (await records(path5.join(doc, "reports"))).map(({ relative, data, body }) => ({ relative, data: typeof data.id === "string" ? data : legacyReportMetadata(relative, body) }));
+  const sources = await records(path5.join(doc, "sources"));
   return /* @__PURE__ */ new Map([
-    [path4.join(doc, "FEATURES.md"), render("Feature Registry", ["Feature", "Purpose", "Ownership", "Dependencies", "Context"], features.map(({ relative, data }) => [data.name, data.description, data.owns, data.depends_on, relative]))],
-    [path4.join(doc, "REQUIREMENTS.md"), render("Requirement Registry", ["ID", "Requirement", "Feature", "Status", "Context"], requirements.map(({ relative, data }) => [data.id, data.title, data.feature, data.status, relative]))],
-    [path4.join(doc, "BACKLOG.md"), render("Backlog Registry", ["Lane", "Position", "ID", "Proposal", "Elevator pitch", "Status", "Features", "Related", "Conflicts", "Context"], backlogOrder(backlog).map(({ relative, data }) => [laneLabel(data.status), backlogLane(data.status) === 0 ? data.queue_position : null, data.id, data.title, data.pitch, data.status, data.features, data.related, data.conflicts, relative]))],
-    [path4.join(doc, "ACTIVE.md"), render("Active Work Registry", ["ID", "Objective", "Status", "Features", "Backlog", "Tasks", "Context"], active.map(({ relative, data }) => [data.id, data.objective, data.status, data.features, data.backlog, data.tasks, relative]))],
-    [path4.join(doc, "DECISIONS.md"), render("Decision Registry", ["ID", "Decision", "Status", "Features", "Context"], decisions.map(({ relative, data }) => [data.id, data.title, data.status, data.features, relative]))],
-    [path4.join(doc, "REPORTS.md"), render("Report Registry", ["ID", "Report", "Status", "Features", "Context"], reports.map(({ relative, data }) => [data.id, data.title, data.status, data.features, relative]))],
-    [path4.join(doc, "SOURCES.md"), render("Source Provenance Registry", ["ID", "Path", "Kind", "Tracking", "Disposition", "Reason", "Record"], sources.map(({ relative, data }) => [data.id, data.path, data.kind, data.tracking, data.disposition, data.reason, relative]))]
+    [path5.join(doc, "FEATURES.md"), render("Feature Registry", ["Feature", "Purpose", "Ownership", "Dependencies", "Context"], features.map(({ relative, data }) => [data.name, data.description, data.owns, data.depends_on, relative]))],
+    [path5.join(doc, "REQUIREMENTS.md"), render("Requirement Registry", ["ID", "Requirement", "Feature", "Status", "Context"], requirements.map(({ relative, data }) => [data.id, data.title, data.feature, data.status, relative]))],
+    [path5.join(doc, "BACKLOG.md"), render("Backlog Registry", ["Lane", "Position", "ID", "Proposal", "Elevator pitch", "Status", "Features", "Related", "Conflicts", "Context"], backlogOrder(backlog).map(({ relative, data }) => [laneLabel(data.status), backlogLane(data.status) === 0 ? data.queue_position : null, data.id, data.title, data.pitch, data.status, data.features, data.related, data.conflicts, relative]))],
+    [path5.join(doc, "ACTIVE.md"), render("Active Work Registry", ["ID", "Objective", "Status", "Features", "Backlog", "Tasks", "Context"], active.map(({ relative, data }) => [data.id, data.objective, data.status, data.features, data.backlog, data.tasks, relative]))],
+    [path5.join(doc, "DECISIONS.md"), render("Decision Registry", ["ID", "Decision", "Status", "Features", "Context"], decisions.map(({ relative, data }) => [data.id, data.title, data.status, data.features, relative]))],
+    [path5.join(doc, "REPORTS.md"), render("Report Registry", ["ID", "Report", "Status", "Features", "Context"], reports.map(({ relative, data }) => [data.id, data.title, data.status, data.features, relative]))],
+    [path5.join(doc, "SOURCES.md"), render("Source Provenance Registry", ["ID", "Path", "Kind", "Tracking", "Disposition", "Reason", "Record"], sources.map(({ relative, data }) => [data.id, data.path, data.kind, data.tracking, data.disposition, data.reason, relative]))]
   ]);
 }
 async function rebuildIndexes(projectRoot) {
@@ -11107,12 +11178,631 @@ ${header}
 ${body}
 `;
 }
+async function buildCompactIndexes(root) {
+  const p = layoutPaths(root);
+  const result2 = /* @__PURE__ */ new Map();
+  for (const name of ["features", "requirements", "decisions", "reports", "sources"]) {
+    const directory = p[name];
+    const target = p.indexes[name];
+    const rows = (await records(directory, (file2) => path5.basename(file2) !== "INDEX.md" && (name !== "features" || path5.basename(file2) === p.featureFile))).filter((row) => typeof (row.data.id ?? row.data.name) === "string");
+    const links = rows.map((row) => {
+      const file2 = path5.resolve(path5.dirname(directory), row.relative);
+      const relative = path5.relative(path5.dirname(target), file2).split(path5.sep).join("/");
+      const label = String(row.data.title ?? row.data.name ?? row.data.path ?? row.data.id).replaceAll("[", "\\[").replaceAll("]", "\\]");
+      return [row.data.id ?? row.data.name, `[${label}](${relative})`, row.data.status ?? row.data.disposition, name === "sources" ? row.data.reason : row.data.feature ?? row.data.features];
+    });
+    result2.set(target, render(name[0].toUpperCase() + name.slice(1), ["ID", "Document", "Status", name === "sources" ? "Reason" : "Features"], links));
+  }
+  const work = (await records(p.work)).filter((row) => typeof row.data.id === "string");
+  const sort = (a, b) => Number(a.data.order ?? Infinity) - Number(b.data.order ?? Infinity) || String(a.data.id).localeCompare(String(b.data.id));
+  let body = "# Work\n\nGenerated from canonical work/items frontmatter. Item metadata is authoritative; do not maintain a second schedule.\n";
+  for (const [title, statuses] of [["Queue", ["proposed", "planned"]], ["Current execution", ["active", "blocked"]], ["Completed and merged", ["done", "merged"]]]) {
+    const rows = work.filter((row) => statuses.includes(row.data.status)).sort(sort);
+    body += `
+## ${title}
+
+| Order | Work item | Status | ID |
+|---|---|---|---|
+`;
+    for (const row of rows) body += `| ${cell(row.data.order)} | [${cell(row.data.title)}](${row.relative.split(path5.sep).join("/")}) | ${cell(row.data.status)} | ${cell(row.data.id)} |
+`;
+    if (!rows.length) body += "| \u2014 | None | \u2014 | \u2014 |\n";
+  }
+  result2.set(p.indexes.work, body);
+  return result2;
+}
 var init_indexing = __esm({
   "src/indexing/index.ts"() {
     "use strict";
+    init_layout();
     init_fs();
     init_records();
     init_frontmatter();
+  }
+});
+
+// src/tasks/transactions.ts
+import { randomUUID } from "node:crypto";
+import { lstat, readdir as readdir3, realpath, rm as rm2 } from "node:fs/promises";
+import path6 from "node:path";
+async function withProjectLock(root, action) {
+  const target = path6.join(root, ".local/locks/project.lock");
+  const token = randomUUID();
+  if (!await createExclusive(target, JSON.stringify({ token, pid: process.pid }))) throw new Error("Project task state is busy. Inspect the lock; an abandoned lock requires explicit repair-tasks --unlock <token>.");
+  try {
+    return await action();
+  } finally {
+    const saved = JSON.parse(await readText(target));
+    if (saved.token !== token) throw new Error("Project lock ownership changed unexpectedly");
+    await rm2(target);
+  }
+}
+async function pendingTransactions(root) {
+  const directory = path6.join(root, ".local/operations");
+  if (!await exists(directory)) return [];
+  const pending = [];
+  for (const name of (await readdir3(directory)).sort()) {
+    if (!name.endsWith(".json")) continue;
+    const target = path6.join(directory, name);
+    const data = JSON.parse(await readText(target));
+    if (data.status !== "committed") pending.push(target);
+  }
+  return pending;
+}
+async function assertNoPending(root) {
+  if ((await pendingTransactions(root)).length) throw new Error("Task operation is incomplete; run repair-tasks before continuing");
+}
+async function safeTarget(root, relative) {
+  const target = path6.resolve(root, relative);
+  const layout = layoutPaths(root);
+  const taskRoot = path6.join(root, "tasks");
+  const workRoot = layout.compact ? layout.work : "";
+  const inTasks = within(taskRoot, target) && target !== taskRoot;
+  const inWork = layout.compact && within(workRoot, target) && target !== workRoot && target.endsWith(".md");
+  if (!inTasks && !inWork) throw new Error("Transaction target escapes task or compact work storage");
+  let current = target;
+  while (within(root, current) && current !== root) {
+    try {
+      if ((await lstat(current)).isSymbolicLink()) throw new Error("Task transaction rejects symlink targets");
+    } catch (error62) {
+      if (error62.code !== "ENOENT") throw error62;
+    }
+    current = path6.dirname(current);
+  }
+  return target;
+}
+async function applyTransaction(root, file2, tx) {
+  if (tx.version !== 1 || !Array.isArray(tx.writes) || !tx.writes.length) throw new Error("Unknown transaction format; preserve operation for manual review");
+  const targets = /* @__PURE__ */ new Set();
+  for (const write of tx.writes) {
+    if (typeof write.path !== "string" || typeof write.after !== "string" || write.before !== null && typeof write.before !== "string") throw new Error("Invalid transaction write");
+    const target = await safeTarget(root, write.path);
+    if (targets.has(target)) throw new Error("Duplicate transaction path");
+    targets.add(target);
+    const current = await exists(target) ? await readText(target) : null;
+    if (current !== write.before && current !== write.after) throw new Error(`Recovery refuses changed task notes: ${write.path}`);
+  }
+  for (const write of tx.writes) await atomicWrite(await safeTarget(root, write.path), write.after);
+  await atomicWrite(file2, JSON.stringify({ ...tx, status: "committed" }));
+}
+async function writeTransaction(root, writes) {
+  const suppliedRoot = path6.resolve(root);
+  root = await realpath(root);
+  await assertNoPending(root);
+  const tx = { version: 1, status: "pending", writes: [] };
+  for (const [target, after] of writes) {
+    const relative = path6.relative(within(suppliedRoot, target) ? suppliedRoot : root, target);
+    await safeTarget(root, relative);
+    tx.writes.push({ path: relative, before: await exists(target) ? await readText(target) : null, after });
+  }
+  const file2 = path6.join(root, ".local/operations", `${randomUUID()}.json`);
+  await atomicWrite(file2, JSON.stringify(tx));
+  await applyTransaction(root, file2, tx);
+}
+async function repairTransactions(root, unlock) {
+  root = await realpath(root);
+  if (unlock) {
+    const target = path6.join(root, ".local/locks/project.lock");
+    const lock = JSON.parse(await readText(target));
+    if (lock.token !== unlock || !Number.isInteger(lock.pid) || lock.pid <= 0) throw new Error("Lock identity mismatch");
+    try {
+      process.kill(lock.pid, 0);
+      throw new Error("Lock owner is still alive; cannot unlock");
+    } catch (error62) {
+      if (error62.code !== "ESRCH") throw error62;
+    }
+    await rm2(target);
+  }
+  return withProjectLock(root, async () => {
+    const pending = await pendingTransactions(root);
+    for (const file2 of pending) await applyTransaction(root, file2, JSON.parse(await readText(file2)));
+    return pending;
+  });
+}
+var init_transactions = __esm({
+  "src/tasks/transactions.ts"() {
+    "use strict";
+    init_fs();
+    init_layout();
+  }
+});
+
+// src/backlog/transactions.ts
+import { randomUUID as randomUUID2 } from "node:crypto";
+import { lstat as lstat2, readdir as readdir4 } from "node:fs/promises";
+import path7 from "node:path";
+function operationDirectory(root) {
+  return path7.join(root, ".local", "context-operations");
+}
+async function safeTarget2(root, relative) {
+  const target = path7.resolve(root, relative);
+  const backlog = path7.join(root, "doc", "backlog");
+  const active = path7.join(root, "doc", "active");
+  if ((!within(backlog, target) || target === backlog) && (!within(active, target) || target === active)) throw new Error("Context operation target is outside Backlog or Active storage");
+  if (!target.endsWith(".md")) throw new Error("Context operation target must be Markdown");
+  let current = target;
+  while (current !== root && within(root, current)) {
+    try {
+      if ((await lstat2(current)).isSymbolicLink()) throw new Error("Context operation rejects symlink target");
+    } catch (error62) {
+      if (error62.code !== "ENOENT") throw error62;
+    }
+    current = path7.dirname(current);
+  }
+  return target;
+}
+async function pendingContextOperations(root) {
+  const directory = operationDirectory(root);
+  if (!await exists(directory)) return [];
+  const result2 = [];
+  for (const name of (await readdir4(directory)).sort()) {
+    if (!name.endsWith(".json")) continue;
+    const file2 = path7.join(directory, name);
+    const operation = JSON.parse(await readText(file2));
+    if (operation.status !== "committed") result2.push(file2);
+  }
+  return result2;
+}
+async function assertNoPendingContext(root) {
+  if ((await pendingContextOperations(root)).length) throw new Error("Backlog operation needs repair-context before new changes");
+}
+async function applyOperation(root, file2, operation) {
+  if (operation.version !== 1 || !Array.isArray(operation.writes) || !operation.writes.length) throw new Error("Invalid Backlog recovery journal");
+  const targets = /* @__PURE__ */ new Set();
+  for (const write of operation.writes) {
+    if (typeof write.path !== "string" || typeof write.after !== "string" || write.before !== null && typeof write.before !== "string") throw new Error("Invalid Backlog recovery write");
+    const target = await safeTarget2(root, write.path);
+    if (targets.has(target)) throw new Error("Duplicate Backlog recovery path");
+    targets.add(target);
+    const current = await exists(target) ? await readText(target) : null;
+    if (current !== write.before && current !== write.after) throw new Error(`Recovery refuses changed context: ${write.path}`);
+  }
+  for (const write of operation.writes) await atomicWrite(await safeTarget2(root, write.path), write.after);
+  await atomicWrite(file2, JSON.stringify({ ...operation, status: "committed" }));
+}
+async function writeContextOperation(root, writes) {
+  await assertNoPendingContext(root);
+  const operation = { version: 1, status: "pending", writes: [] };
+  for (const [target, after] of writes) {
+    const safe = await safeTarget2(root, path7.relative(root, target));
+    operation.writes.push({ path: path7.relative(root, safe), before: await exists(safe) ? await readText(safe) : null, after });
+  }
+  const file2 = path7.join(operationDirectory(root), `${randomUUID2()}.json`);
+  await atomicWrite(file2, JSON.stringify(operation));
+  await applyOperation(root, file2, operation);
+}
+async function repairContextOperations(root) {
+  return withProjectLock(root, async () => {
+    const pending = await pendingContextOperations(root);
+    for (const file2 of pending) await applyOperation(root, file2, JSON.parse(await readText(file2)));
+    await rebuildIndexes(root);
+    return pending;
+  });
+}
+var init_transactions2 = __esm({
+  "src/backlog/transactions.ts"() {
+    "use strict";
+    init_fs();
+    init_indexing();
+    init_transactions();
+  }
+});
+
+// src/migration/transactions.ts
+import { randomUUID as randomUUID3 } from "node:crypto";
+import { lstat as lstat3, readdir as readdir5, rm as rm3 } from "node:fs/promises";
+import path8 from "node:path";
+async function safeTarget3(root, relative) {
+  const target = path8.resolve(root, relative);
+  if (!target.endsWith(".md") || !(collections.some((name) => {
+    const directory = layoutPaths(root)[name];
+    return within(directory, target) && target !== directory;
+  }) || layoutPaths(root).compact && [layoutPaths(root).work, path8.join(root, "tasks")].some((dir) => within(dir, target) && dir !== target) || layoutPaths(root).compact && ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md"].includes(relative))) throw new Error(`Filename operation target is outside approved record storage: ${relative}`);
+  let current = target;
+  while (current !== root && within(root, current)) {
+    try {
+      if ((await lstat3(current)).isSymbolicLink()) throw new Error(`Filename operation rejects symlink target: ${relative}`);
+    } catch (error62) {
+      if (error62.code !== "ENOENT") throw error62;
+    }
+    current = path8.dirname(current);
+  }
+  return target;
+}
+async function pendingFilenameOperations(root) {
+  const directory = operationDirectory2(root);
+  if (!await exists(directory)) return [];
+  const pending = [];
+  for (const name of (await readdir5(directory)).sort()) {
+    if (!name.endsWith(".json")) continue;
+    const file2 = path8.join(directory, name);
+    const operation = JSON.parse(await readText(file2));
+    if (operation.status !== "committed") pending.push(file2);
+  }
+  return pending;
+}
+async function assertNoPendingFilenameOperations(root) {
+  if ((await pendingFilenameOperations(root)).length) throw new Error("Filename operation needs repair-filenames before new changes");
+}
+async function applyOperation2(root, file2, operation) {
+  if (operation.version !== 1 || !Array.isArray(operation.writes) || !operation.writes.length) throw new Error("Invalid filename recovery journal");
+  const targets = /* @__PURE__ */ new Set();
+  for (const write of operation.writes) {
+    if (typeof write.path !== "string" || write.after !== null && typeof write.after !== "string" || write.before !== null && typeof write.before !== "string") throw new Error("Invalid filename recovery write");
+    const target = await safeTarget3(root, write.path);
+    if (targets.has(target)) throw new Error(`Duplicate filename recovery path: ${write.path}`);
+    targets.add(target);
+    const current = await exists(target) ? await readText(target) : null;
+    if (current !== write.before && current !== write.after) throw new Error(`Recovery refuses changed record: ${write.path}`);
+  }
+  for (const write of operation.writes) {
+    const target = await safeTarget3(root, write.path);
+    if (write.after === null) await rm3(target, { force: true });
+    else await atomicWrite(target, write.after);
+  }
+  await atomicWrite(file2, JSON.stringify({ ...operation, status: "committed" }));
+}
+async function writeFilenameOperation(root, writes) {
+  await assertNoPendingFilenameOperations(root);
+  const operation = { version: 1, status: "pending", writes: [] };
+  for (const [target, after] of writes) {
+    const safe = await safeTarget3(root, path8.relative(root, target));
+    operation.writes.push({ path: path8.relative(root, safe), before: await exists(safe) ? await readText(safe) : null, after });
+  }
+  if (!operation.writes.length) return;
+  const file2 = path8.join(operationDirectory2(root), `${randomUUID3()}.json`);
+  await atomicWrite(file2, JSON.stringify(operation));
+  await applyOperation2(root, file2, operation);
+}
+async function repairFilenameOperations(root) {
+  return withProjectLock(root, async () => {
+    const pending = await pendingFilenameOperations(root);
+    for (const file2 of pending) await applyOperation2(root, file2, JSON.parse(await readText(file2)));
+    await rebuildIndexes(root);
+    return pending;
+  });
+}
+var collections, operationDirectory2;
+var init_transactions3 = __esm({
+  "src/migration/transactions.ts"() {
+    "use strict";
+    init_layout();
+    init_fs();
+    init_indexing();
+    init_transactions();
+    collections = ["requirements", "decisions", "reports", "sources"];
+    operationDirectory2 = (root) => path8.join(root, ".local", "filename-operations");
+  }
+});
+
+// src/migration/layout.ts
+import path9 from "node:path";
+import { createHash } from "node:crypto";
+import { lstat as lstat4, readdir as readdir6, readlink, readFile as readFile2, realpath as realpath2, rm as rm4 } from "node:fs/promises";
+async function files(root, directory) {
+  if (!await exists(directory)) return [];
+  const result2 = [];
+  for (const entry of await readdir6(directory, { withFileTypes: true })) {
+    if (entry.name === "worktree" || entry.name === ".git") continue;
+    const file2 = path9.join(directory, entry.name);
+    if (entry.isSymbolicLink()) throw new Error(`Migration rejects nested symlink: ${path9.relative(root, file2)}`);
+    if (entry.isDirectory()) result2.push(...await files(root, file2));
+    else if (entry.isFile()) result2.push(file2);
+  }
+  return result2.sort();
+}
+function replaceRootPath(text, old, next) {
+  return text.replace(new RegExp(`(^|[^A-Za-z0-9_.-])${old.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "g"), (_match, prefix) => `${prefix}${next}`);
+}
+function repairText(text, from, to, paths2, sourcePrefix) {
+  text = text.replace(/\]\(([^\s)]+)\)/g, (match, target) => {
+    if (/^(?:[a-z]+:|#|\/)/i.test(target)) return match;
+    const [name, anchor2] = target.split("#");
+    if (sourcePrefix && name.startsWith("repo/")) {
+      const source = path9.posix.normalize(path9.posix.join(sourcePrefix, name.slice(5)));
+      const relative2 = path9.posix.relative(path9.posix.dirname(to), source);
+      return `](${relative2}${anchor2 ? `#${anchor2}` : ""})`;
+    }
+    const old = path9.posix.normalize(path9.posix.join(path9.posix.dirname(from), name));
+    const mapped = paths2[old];
+    if (!mapped) return match;
+    const relative = path9.posix.relative(path9.posix.dirname(to), mapped);
+    return `](${relative}${anchor2 ? `#${anchor2}` : ""})`;
+  });
+  for (const [old, next] of Object.entries(paths2).sort((a, b) => b[0].length - a[0].length)) text = replaceRootPath(text, old, next);
+  for (const [old, next] of [["doc/backlog/", "work/items/"], ["doc/active/", "work/items/"], ["doc/shelf/", "work/items/"], ["doc/sources/", "sources/records/"], ["doc/", "docs/"]]) text = replaceRootPath(text, old, next);
+  if (sourcePrefix) text = replaceRootPath(text, "repo/", `${sourcePrefix}/`);
+  return text;
+}
+async function migrateLayout(root, options = {}) {
+  root = path9.resolve(root);
+  if (await exists(journalPath(root))) {
+    const prior = JSON.parse(await readText(journalPath(root)));
+    if (prior.status !== "committed") throw new Error("Layout migration is incomplete; run repair-layout");
+  }
+  const layout = layoutPaths(root);
+  if (layout.compact) return { moves: [], conflicts: [], fingerprint: hash("compact-v1"), applied: false, alreadyCompact: true };
+  const originals = /* @__PURE__ */ new Map();
+  for (const directory of ["doc", "docs/plan", "tasks"]) for (const file2 of await files(root, path9.join(root, directory))) {
+    if (directory === "tasks" && !file2.endsWith(".md")) continue;
+    const bytes = await readFile2(file2);
+    if (!Buffer.from(bytes.toString("utf8")).equals(bytes)) throw new Error(`Migration requires review of binary content: ${path9.relative(root, file2)}`);
+    originals.set(path9.relative(root, file2), bytes.toString("utf8"));
+  }
+  for (const name of ["AGENTS.md", "CLAUDE.md", "CONTEXT_MAP.md", "PROJECT.md", "START_HERE.md", ".local/state.json"]) if (await exists(path9.join(root, name))) originals.set(name, await readText(path9.join(root, name)));
+  const previousState = originals.has(".local/state.json") ? JSON.parse(originals.get(".local/state.json")) : {};
+  const repositoryPath = typeof previousState.repositoryPath === "string" ? await realpath2(previousState.repositoryPath).catch(() => void 0) : void 0;
+  const sourcePrefix = repositoryPath ? path9.relative(root, repositoryPath).split(path9.sep).join("/") : void 0;
+  const archive = `.local/archives/layout-${hash(JSON.stringify([...originals])).slice(0, 20)}`;
+  const paths2 = {};
+  const output3 = /* @__PURE__ */ new Map();
+  const occupied = /* @__PURE__ */ new Set();
+  const conflicts = [];
+  const allocate = (dir, label) => {
+    const slug = readableSlug(label, "record");
+    for (let n = 1; ; n++) {
+      const candidate = `${dir}/${slug}${n === 1 ? "" : `-${n}`}.md`;
+      if (!occupied.has(candidate.toLowerCase())) {
+        occupied.add(candidate.toLowerCase());
+        return candidate;
+      }
+    }
+  };
+  const work = [], active = [], forwarders = [];
+  const indexes = { "doc/FEATURES.md": "docs/features/INDEX.md", "doc/REQUIREMENTS.md": "docs/requirements/INDEX.md", "doc/DECISIONS.md": "docs/decisions/INDEX.md", "doc/REPORTS.md": "docs/reports/INDEX.md", "doc/SOURCES.md": "sources/INDEX.md", "doc/BACKLOG.md": "work/INDEX.md", "doc/ACTIVE.md": "work/INDEX.md", "doc/SHELF.md": "work/INDEX.md", "START_HERE.md": "CONTEXT_MAP.md" };
+  Object.assign(paths2, indexes);
+  for (const [old, text] of originals) {
+    if (!old.startsWith("doc/")) continue;
+    if (indexes[old]) continue;
+    if (!old.endsWith(".md")) {
+      paths2[old] = `${archive}/original/${old}`;
+      continue;
+    }
+    const parsed = parseMarkdown(text), document = { old, ...parsed };
+    if (isForwarder(parsed.data)) {
+      forwarders.push(document);
+      continue;
+    }
+    if (/^doc\/(backlog|shelf)\//.test(old)) {
+      work.push(document);
+      continue;
+    }
+    if (old.startsWith("doc/active/")) {
+      active.push(document);
+      continue;
+    }
+    let next;
+    if (old === "doc/ARCHITECTURE.md") {
+      next = "docs/architecture.md";
+      occupied.add(next.toLowerCase());
+    } else if (/^doc\/[^/]+\.md$/.test(old)) next = allocate("docs", path9.basename(old, ".md"));
+    else if (old.startsWith("doc/features/")) next = old.replace(/^doc\//, "docs/").replace(/FEATURE\.md$/, "overview.md").replace(/CONTRACTS\.md$/, "contracts.md");
+    else {
+      const collection = old.split("/")[1];
+      next = allocate(collection === "sources" ? "sources/records" : `docs/${collection}`, String(parsed.data.path ?? parsed.data.title ?? path9.basename(old, ".md")));
+    }
+    paths2[old] = next;
+    if (old.startsWith("doc/reports/") && typeof parsed.data.id !== "string") {
+      const data = {
+        ...parsed.data,
+        id: `REPORT-${hash(old).slice(0, 16).toUpperCase()}`,
+        title: parsed.body.match(/^#\s+(.+)$/m)?.[1] ?? path9.basename(old, ".md"),
+        status: "historical",
+        features: [],
+        origin: "inferred",
+        migration_classification: "Preserved historical report; not newly accepted evidence"
+      };
+      output3.set(next, renderMarkdown(data, parsed.body));
+    } else output3.set(next, text);
+  }
+  for (const a of active) {
+    const origins = Array.isArray(a.data.backlog) ? a.data.backlog.map(String) : [];
+    const matches = work.filter((w2) => origins.includes(String(w2.data.id)));
+    if (origins.length > 1 || origins.length && matches.length !== 1) {
+      conflicts.push(`Ambiguous Active origins: ${a.old}`);
+      continue;
+    }
+    if (!matches.length) {
+      work.push(a);
+      continue;
+    }
+    const w = matches[0];
+    const compatible = w.data.status === a.data.status || w.data.status === "planned" && a.data.status === "active" || w.data.status === "active" && ["done", "superseded"].includes(String(a.data.status));
+    if (!compatible) {
+      conflicts.push(`Contradictory lifecycle: ${w.old} and ${a.old}`);
+      continue;
+    }
+    if (w.data.status !== a.data.status) w.data.status_history = [...Array.isArray(w.data.status_history) ? w.data.status_history : [], { from: w.data.status, to: a.data.status, reason: `Migrated linked execution record ${a.data.id}` }];
+    w.data.status = a.data.status;
+    w.data.aliases = [.../* @__PURE__ */ new Set([...Array.isArray(w.data.aliases) ? w.data.aliases : [], a.data.id])];
+    w.data.tasks = [.../* @__PURE__ */ new Set([...Array.isArray(w.data.tasks) ? w.data.tasks : [], ...Array.isArray(a.data.tasks) ? a.data.tasks : []])];
+    w.data.legacy_active = a.data;
+    w.body += `
+
+## Prior execution record
+
+${a.body}`;
+    paths2[a.old] = w.old;
+  }
+  for (const w of work) {
+    const next = allocate("work/items", String(w.data.title ?? w.data.id));
+    paths2[w.old] = next;
+    if (w.old.startsWith("doc/shelf/")) {
+      w.data.status = "proposed";
+      w.data.pitch ??= w.body.split(/\n\s*\n/).find((part) => part.trim() && !part.trim().startsWith("#"))?.trim() ?? w.data.title;
+      w.data.provenance ??= `Migrated legacy Shelf record ${w.data.id}`;
+    }
+    if (w.data.status === "deferred") w.data.status = "blocked";
+    if (w.data.status === "superseded") {
+      w.data.status = "merged";
+      if (!w.data.merged_into && !w.data.superseded_by) conflicts.push(`Superseded work needs a merge target: ${w.old}`);
+      else w.data.merged_into ??= w.data.superseded_by;
+    }
+    if (["proposed", "planned"].includes(String(w.data.status)) && w.data.queue_position !== void 0) w.data.order = w.data.queue_position;
+    delete w.data.queue_position;
+    delete w.data.activation;
+    output3.set(next, renderMarkdown(w.data, w.body));
+  }
+  for (const [old, next] of Object.entries(paths2)) if (paths2[next] && old !== next) paths2[old] = paths2[next];
+  for (const f of forwarders) {
+    const target = String(f.data.redirect_to);
+    if (paths2[target]) paths2[f.old] = paths2[target];
+    else conflicts.push(`Unresolved forwarder: ${f.old}`);
+  }
+  for (const [old] of originals) if (old.startsWith("docs/plan/")) paths2[old] = `${archive}/original/${old}`;
+  for (const [old, text] of originals) if (!old.startsWith("doc/") && !old.startsWith("docs/plan/") && old !== "START_HERE.md" && old !== ".local/state.json") output3.set(old, text);
+  for (const [taskPath, text] of output3) {
+    if (!taskPath.startsWith("tasks/") || !taskPath.endsWith("/TASK_STATE.md")) continue;
+    const task = parseMarkdown(text);
+    if (typeof task.data.task_id !== "string") continue;
+    const linked = [...output3.entries()].filter(([name, body]) => name.startsWith("work/items/") && parseMarkdown(body).data.tasks?.includes(task.data.task_id)).map(([, body]) => String(parseMarkdown(body).data.id));
+    if (linked.length) {
+      task.data.work_items = [.../* @__PURE__ */ new Set([...Array.isArray(task.data.work_items) ? task.data.work_items : [], ...linked])];
+      output3.set(taskPath, renderMarkdown(task.data, task.body));
+    }
+  }
+  for (const [target, text] of output3) {
+    const old = Object.keys(paths2).find((key) => paths2[key] === target && originals.has(key)) ?? target;
+    output3.set(target, repairText(text, old, target, paths2, sourcePrefix));
+  }
+  if (originals.has(".local/state.json")) {
+    const state = JSON.parse(originals.get(".local/state.json"));
+    state.layout = "compact-v1";
+    state.migrationMap = `${archive}/path-map.json`;
+    output3.set(".local/state.json", JSON.stringify(state, null, 2) + "\n");
+  }
+  try {
+    const link = await lstat4(path9.join(root, "repo"));
+    if (!link.isSymbolicLink()) conflicts.push("repo is not a symlink; migration cannot remove it");
+    else if (!repositoryPath || await realpath2(path9.join(root, "repo")) !== repositoryPath) conflicts.push("repo symlink does not match repository identity");
+  } catch (e) {
+    if (e.code !== "ENOENT") throw e;
+  }
+  if (repositoryPath) for (const name of ["AGENTS.md", "START_HERE.md", "CLAUDE.md"]) {
+    const file2 = path9.join(repositoryPath, name);
+    if (!await exists(file2)) continue;
+    if (/\.deep-context\/(?:doc|repo)(?:\/|\b)|\.deep-context\/START_HERE\.md/.test(await readText(file2))) conflicts.push(`Source startup route must be updated before migration: ${name}`);
+  }
+  for (const name of ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md"]) {
+    const text = output3.get(name);
+    if (text && /(^|[^A-Za-z0-9_.-])(?:repo|doc)\//m.test(text)) conflicts.push(`Unresolved legacy startup route: ${name}`);
+  }
+  for (const target of output3.keys()) if (!originals.has(target) && await exists(path9.join(root, target))) conflicts.push(`Destination occupied: ${target}`);
+  const moves = Object.entries(paths2).filter(([a, b]) => a !== b).map(([from, to]) => ({ from, to }));
+  const fingerprint = hash(JSON.stringify([...originals]) + JSON.stringify([...output3]));
+  if (!options.apply) return { moves, conflicts, fingerprint, applied: false, alreadyCompact: false };
+  if (conflicts.length) throw new Error(`Layout migration conflicts: ${conflicts.join("; ")}`);
+  return withProjectLock(root, async () => {
+    await assertNoPending(root);
+    await assertNoPendingContext(root);
+    await assertNoPendingFilenameOperations(root);
+    for (const [name, before] of originals) if (await readText(path9.join(root, name)) !== before) throw new Error(`Migration source changed: ${name}`);
+    const writes = [];
+    for (const [name, before] of originals) {
+      const snapshot = path9.join(root, archive, "original", name);
+      if (!await createExclusive(snapshot, before) && await readText(snapshot) !== before) throw new Error(`Original snapshot differs: ${name}`);
+      writes.push({ path: name, before, after: output3.get(name) ?? null });
+    }
+    for (const [name, after] of output3) if (!originals.has(name)) writes.push({ path: name, before: null, after });
+    try {
+      const info = await lstat4(path9.join(root, "repo"));
+      if (!info.isSymbolicLink()) throw new Error("repo is not a symlink; refusing to remove it");
+      writes.push({ path: "repo", before: await readlink(path9.join(root, "repo")), after: null, symlink: true });
+    } catch (e) {
+      if (e.code !== "ENOENT") throw e;
+    }
+    await atomicWrite(path9.join(root, archive, "path-map.json"), JSON.stringify(paths2, null, 2));
+    await atomicWrite(path9.join(root, archive, "hashes.json"), JSON.stringify(Object.fromEntries([...originals].map(([name, text]) => [name, hash(text)])), null, 2));
+    const journal = { version: 1, status: "pending", archive, writes, paths: paths2 };
+    await atomicWrite(journalPath(root), JSON.stringify(journal));
+    await applyJournal(root, journal);
+    return { moves, conflicts, fingerprint, applied: true, alreadyCompact: false, archive };
+  });
+}
+async function applyJournal(root, journal) {
+  if (journal.version !== 1 || !Array.isArray(journal.writes) || !journal.archive.startsWith(".local/archives/")) throw new Error("Invalid layout recovery journal");
+  for (const w of journal.writes) {
+    const target = path9.resolve(root, w.path);
+    const allowed = ["AGENTS.md", "CLAUDE.md", "CONTEXT_MAP.md", "PROJECT.md", "START_HERE.md", ".local/state.json", "repo"].includes(w.path) || ["doc/", "docs/", "work/items/", "sources/records/"].some((prefix) => w.path.startsWith(prefix)) || w.path.startsWith("tasks/") && w.path.endsWith(".md") && !w.path.includes("/worktree/");
+    if (!within(root, target) || target === root || !allowed || w.path !== path9.relative(root, target)) throw new Error("Unsafe layout recovery target");
+    for (let parent = path9.dirname(target); within(root, parent) && parent !== root; parent = path9.dirname(parent)) {
+      try {
+        if ((await lstat4(parent)).isSymbolicLink()) throw new Error("Layout recovery rejects symlink parent");
+      } catch (e) {
+        if (e.code !== "ENOENT") throw e;
+      }
+    }
+    if (!w.symlink) {
+      try {
+        if ((await lstat4(target)).isSymbolicLink()) throw new Error("Layout recovery rejects symlink target");
+      } catch (e) {
+        if (e.code !== "ENOENT") throw e;
+      }
+    }
+    let current = null;
+    try {
+      current = w.symlink ? await readlink(target) : await readText(target);
+    } catch (e) {
+      if (e.code !== "ENOENT") throw e;
+    }
+    if (current !== w.before && current !== w.after) throw new Error(`Recovery refuses changed file: ${w.path}`);
+  }
+  for (const w of journal.writes) {
+    const target = path9.join(root, w.path);
+    if (w.after === null) await rm4(target, { force: true });
+    else await atomicWrite(target, w.after);
+  }
+  async function emptyDirectories(dir) {
+    if (!await exists(dir)) return;
+    for (const e of await readdir6(dir, { withFileTypes: true })) if (e.isDirectory()) await emptyDirectories(path9.join(dir, e.name));
+    if (!(await readdir6(dir)).length) await rm4(dir, { recursive: true });
+  }
+  await emptyDirectories(path9.join(root, "doc"));
+  await emptyDirectories(path9.join(root, "docs/plan"));
+  await atomicWrite(journalPath(root), JSON.stringify({ ...journal, status: "committed" }));
+  await rebuildIndexes(root);
+}
+async function repairLayout(root) {
+  root = path9.resolve(root);
+  await withProjectLock(root, async () => {
+    const journal = JSON.parse(await readText(journalPath(root)));
+    if (journal.status !== "committed") await applyJournal(root, journal);
+  });
+}
+var journalPath, hash;
+var init_layout2 = __esm({
+  "src/migration/layout.ts"() {
+    "use strict";
+    init_fs();
+    init_layout();
+    init_records();
+    init_frontmatter();
+    init_transactions();
+    init_transactions2();
+    init_transactions3();
+    init_indexing();
+    journalPath = (root) => path9.join(root, ".local/layout-operation.json");
+    hash = (text) => createHash("sha256").update(text).digest("hex");
   }
 });
 
@@ -11150,11 +11840,11 @@ var init_git = __esm({
 });
 
 // src/importing/index.ts
-import { createHash } from "node:crypto";
-import { lstat, readFile as readFile2, realpath } from "node:fs/promises";
-import path5 from "node:path";
+import { createHash as createHash2 } from "node:crypto";
+import { lstat as lstat5, readFile as readFile3, realpath as realpath3 } from "node:fs/promises";
+import path10 from "node:path";
 function sourceId(relative) {
-  return `SRC-${createHash("sha256").update(relative).digest("hex").slice(0, 12).toUpperCase()}`;
+  return `SRC-${createHash2("sha256").update(relative).digest("hex").slice(0, 12).toUpperCase()}`;
 }
 function classify(relative) {
   const lower = relative.toLowerCase();
@@ -11165,37 +11855,37 @@ function classify(relative) {
   if (lower.includes("/packets/")) return "task-packet";
   if (lower.includes("/reports/")) return "report";
   if (lower.endsWith("readme.md") || lower.endsWith("start_here.md")) return "project-entry";
-  if (textExtensions.has(path5.extname(lower))) return "text";
+  if (textExtensions.has(path10.extname(lower))) return "text";
   return "binary-or-unknown";
 }
 function exclusionReason(relative) {
   const segments = relative.split("/");
   if (segments.some((part) => excludedSegments.has(part))) return "generated, dependency, or build path";
   if (privatePatterns.some((pattern) => pattern.test(relative))) return "protected or credential-bearing filename";
-  if (!textExtensions.has(path5.extname(relative).toLowerCase()) && !["makefile", "package.swift"].includes(path5.basename(relative).toLowerCase())) return "non-text or unsupported file type";
+  if (!textExtensions.has(path10.extname(relative).toLowerCase()) && !["makefile", "package.swift"].includes(path10.basename(relative).toLowerCase())) return "non-text or unsupported file type";
   return void 0;
 }
 async function inventoryRepository(repository, options = {}) {
-  const root = await realpath(repository);
+  const root = await realpath3(repository);
   if (!await isGitRepository(root)) throw new Error(`${repository} is not a Git repository`);
   const listed = await git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"]);
   const tracked = new Set((await git(root, ["ls-files", "-z"])).split("\0").filter(Boolean));
   const excludedRoots = await Promise.all((options.excludedRoots ?? []).map(async (candidate) => {
-    const resolved = await realpath(candidate).catch(() => path5.resolve(candidate));
-    return resolved === root || resolved.startsWith(`${root}${path5.sep}`) ? path5.relative(root, resolved) : void 0;
+    const resolved = await realpath3(candidate).catch(() => path10.resolve(candidate));
+    return resolved === root || resolved.startsWith(`${root}${path10.sep}`) ? path10.relative(root, resolved) : void 0;
   }));
   const excludedRelativeRoots = excludedRoots.filter((candidate) => candidate !== void 0);
   const candidates = [...new Set(listed.split("\0").filter(Boolean))].filter((relative) => !relative.split("/").includes(".deep-context")).filter((relative) => !excludedRelativeRoots.some((excluded) => relative === excluded || relative.startsWith(`${excluded}/`))).sort();
   const records2 = [];
   for (const relative of candidates) {
-    const absolute = path5.join(root, relative);
+    const absolute = path10.join(root, relative);
     const reason = exclusionReason(relative);
     let tracking = tracked.has(relative) ? "tracked" : "untracked";
     let disposition = reason ? "excluded" : tracking === "untracked" ? "review" : "referenced";
-    let hash2;
+    let hash3;
     let finalReason = reason ?? (tracking === "untracked" ? "nonignored working-tree evidence requires review" : "tracked source evidence");
     try {
-      const info = await lstat(absolute);
+      const info = await lstat5(absolute);
       if (info.isSymbolicLink()) {
         disposition = "excluded";
         finalReason = "repository symlink not followed";
@@ -11206,12 +11896,12 @@ async function inventoryRepository(repository, options = {}) {
         disposition = "excluded";
         finalReason = `text candidate exceeds ${MAX_TEXT_BYTES} bytes`;
       } else if (!reason) {
-        const bytes = await readFile2(absolute);
+        const bytes = await readFile3(absolute);
         if (bytes.includes(0)) {
           disposition = "excluded";
           finalReason = "binary content detected";
         } else {
-          hash2 = createHash("sha256").update(bytes).digest("hex");
+          hash3 = createHash2("sha256").update(bytes).digest("hex");
         }
       }
     } catch {
@@ -11219,7 +11909,7 @@ async function inventoryRepository(repository, options = {}) {
       disposition = "missing";
       finalReason = "indexed path is missing from the working tree";
     }
-    records2.push({ id: sourceId(relative), path: relative, kind: classify(relative), tracking, disposition, reason: finalReason, sha256: hash2, origin: "confirmed", targets: [] });
+    records2.push({ id: sourceId(relative), path: relative, kind: classify(relative), tracking, disposition, reason: finalReason, sha256: hash3, origin: "confirmed", targets: [] });
   }
   const status = await git(root, ["status", "--porcelain=v1", "-z"]);
   return {
@@ -11242,21 +11932,21 @@ var init_importing = __esm({
 });
 
 // src/core/template.ts
-import { existsSync, readFileSync } from "node:fs";
-import path6 from "node:path";
+import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
+import path11 from "node:path";
 import { fileURLToPath } from "node:url";
 function templateRoot() {
   const candidates = [
     process.env.DEEP_CONTEXT_TEMPLATE_ROOT,
-    path6.resolve(moduleDirectory, "../templates"),
-    path6.resolve(moduleDirectory, "../../plugins/deep-context/templates")
+    path11.resolve(moduleDirectory, "../templates"),
+    path11.resolve(moduleDirectory, "../../plugins/deep-context/templates")
   ].filter((candidate) => Boolean(candidate));
-  const root = candidates.find((candidate) => existsSync(candidate));
+  const root = candidates.find((candidate) => existsSync2(candidate));
   if (!root) throw new Error("Deep Context templates directory could not be resolved");
   return root;
 }
 function renderTemplate(relative, values) {
-  let contents = readFileSync(path6.join(templateRoot(), relative), "utf8");
+  let contents = readFileSync2(path11.join(templateRoot(), relative), "utf8");
   for (const [key, value] of Object.entries(values)) contents = contents.replaceAll(`{{${key}}}`, value);
   const unresolved = contents.match(/\{\{[A-Z0-9_]+\}\}/g);
   if (unresolved) throw new Error(`Unresolved template values in ${relative}: ${unresolved.join(", ")}`);
@@ -11267,7 +11957,7 @@ var moduleDirectory;
 var init_template = __esm({
   "src/core/template.ts"() {
     "use strict";
-    moduleDirectory = path6.dirname(fileURLToPath(import.meta.url));
+    moduleDirectory = path11.dirname(fileURLToPath(import.meta.url));
   }
 });
 
@@ -11282,8 +11972,8 @@ function projectOverview(name, repository, projectId) {
   return renderTemplate("project/PROJECT.md.template", {
     PROJECT_NAME: name,
     PROJECT_ID: projectId ?? "",
-    REPOSITORY_SUFFIX: repository ? " for the source repository resolved through `repo/`" : "",
-    REPOSITORY_GUIDANCE: repository ? "Use `repo/` as the stable source path. Machine-specific paths belong only in `.local/state.json` and the symlink target." : "No source repository is attached yet."
+    REPOSITORY_SUFFIX: repository ? " for the source repository recorded in `.local/state.json`" : "",
+    REPOSITORY_GUIDANCE: repository ? "Resolve source paths through repositoryPath in `.local/state.json`; worktrees share the primary checkout context." : "No source repository is attached yet."
   });
 }
 var architectureTemplate, projectContextAgent;
@@ -11518,10 +12208,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path24) {
-  if (!path24)
+function getElementAtPath(obj, path27) {
+  if (!path27)
     return obj;
-  return path24.reduce((acc, key) => acc?.[key], obj);
+  return path27.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -11780,11 +12470,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path24, issues) {
+function prefixIssues(path27, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path24);
+    iss.path.unshift(path27);
     return iss;
   });
 }
@@ -12305,16 +12995,16 @@ function flattenError(error62, mapper = (issue2) => issue2.message) {
 }
 function formatError(error62, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error63, path24 = []) => {
+  const processError = (error63, path27 = []) => {
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path24, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path27, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path24, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path27, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path24, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path27, ...issue2.path]);
       } else {
-        const fullpath = [...path24, ...issue2.path];
+        const fullpath = [...path27, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -12353,17 +13043,17 @@ function formatError(error62, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error62, mapper = (issue2) => issue2.message) {
   const result2 = { errors: [] };
-  const processError = (error63, path24 = []) => {
+  const processError = (error63, path27 = []) => {
     var _a3;
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path24, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path27, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path24, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path27, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path24, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path27, ...issue2.path]);
       } else {
-        const fullpath = [...path24, ...issue2.path];
+        const fullpath = [...path27, ...issue2.path];
         if (fullpath.length === 0) {
           result2.errors.push(mapper(issue2));
           continue;
@@ -12402,8 +13092,8 @@ function treeifyError(error62, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path24 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path24) {
+  const path27 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path27) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -28766,7 +29456,7 @@ __export(schemas_exports2, {
   float64: () => float64,
   function: () => _function,
   guid: () => guid2,
-  hash: () => hash,
+  hash: () => hash2,
   hex: () => hex2,
   hostname: () => hostname2,
   httpUrl: () => httpUrl,
@@ -28940,7 +29630,7 @@ function hex2(_params) {
 function currencyCode2(_params) {
   return _stringFormat(ZodCustomStringFormat, "currency_code", currencyCode, _params);
 }
-function hash(alg, params) {
+function hash2(alg, params) {
   const enc = params?.enc ?? "hex";
   const format = `${alg}_${enc}`;
   const regex = regexes_exports[format];
@@ -30399,13 +31089,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path24 = ref.slice(1).split("/").filter(Boolean);
-  if (path24.length === 0) {
+  const path27 = ref.slice(1).split("/").filter(Boolean);
+  if (path27.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path24[0] === defsKey) {
-    const key = path24[1] === void 0 ? void 0 : decodeJSONPointerSegment(path24[1]);
+  if (path27[0] === defsKey) {
+    const key = path27[1] === void 0 ? void 0 : decodeJSONPointerSegment(path27[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -31508,7 +32198,7 @@ __export(external_exports, {
   gt: () => _gt,
   gte: () => _gte,
   guid: () => guid2,
-  hash: () => hash,
+  hash: () => hash2,
   hex: () => hex2,
   hostname: () => hostname2,
   httpUrl: () => httpUrl,
@@ -31666,7 +32356,7 @@ var init_types = __esm({
 });
 
 // src/frontmatter/schemas.ts
-var stringList, featureSchema, requirementSchema, backlogSchema, shelfSchema, activeSchema, decisionSchema, reportSchema, sourceSchema;
+var stringList, featureSchema, requirementSchema, backlogSchema, shelfSchema, activeSchema, decisionSchema, reportSchema, sourceSchema, workItemSchema;
 var init_schemas3 = __esm({
   "src/frontmatter/schemas.ts"() {
     "use strict";
@@ -31747,6 +32437,26 @@ var init_schemas3 = __esm({
       origin: external_exports.enum(["confirmed", "inferred"]),
       targets: stringList
     }).passthrough();
+    workItemSchema = external_exports.object({
+      id: external_exports.string().min(1),
+      title: external_exports.string().min(1),
+      status: external_exports.enum(["proposed", "planned", "active", "blocked", "done", "merged"]),
+      pitch: external_exports.string().optional(),
+      objective: external_exports.string().optional(),
+      provenance: external_exports.string().optional(),
+      features: stringList,
+      tokens: stringList,
+      related: stringList,
+      conflicts: stringList,
+      aliases: stringList,
+      tasks: stringList,
+      requirements: stringList,
+      decisions: stringList,
+      order: external_exports.number().int().positive().safe().optional(),
+      outcome: external_exports.string().optional(),
+      open_gates: stringList,
+      merged_into: external_exports.string().optional()
+    }).passthrough();
   }
 });
 
@@ -31763,18 +32473,18 @@ var init_names = __esm({
 });
 
 // src/routing/index.ts
-import { readdir as readdir3 } from "node:fs/promises";
-import path7 from "node:path";
+import { readdir as readdir7 } from "node:fs/promises";
+import path12 from "node:path";
 async function canonicalFiles(directory) {
   if (!await exists(directory)) return [];
-  const entries = await readdir3(directory, { withFileTypes: true });
-  const files2 = [];
+  const entries = await readdir7(directory, { withFileTypes: true });
+  const files3 = [];
   for (const entry of entries) {
-    const target = path7.join(directory, entry.name);
-    if (entry.isDirectory()) files2.push(...await canonicalFiles(target));
-    else if (entry.isFile() && entry.name.endsWith(".md")) files2.push(target);
+    const target = path12.join(directory, entry.name);
+    if (entry.isDirectory()) files3.push(...await canonicalFiles(target));
+    else if (entry.isFile() && entry.name.endsWith(".md")) files3.push(target);
   }
-  return files2.sort();
+  return files3.sort();
 }
 async function featureRecords(projectRoot, directory, schema) {
   const records2 = /* @__PURE__ */ new Map();
@@ -31783,36 +32493,37 @@ async function featureRecords(projectRoot, directory, schema) {
     if (isForwarder(document.data) || typeof document.data.id !== "string") continue;
     const data = schema.parse(document.data);
     for (const feature of data.features) {
-      const files2 = records2.get(feature) ?? [];
-      files2.push(path7.relative(projectRoot, file2));
-      records2.set(feature, files2);
+      const files3 = records2.get(feature) ?? [];
+      files3.push(path12.relative(projectRoot, file2));
+      records2.set(feature, files3);
     }
   }
   return records2;
 }
 async function selectFeatureContext(projectRoot, requested) {
-  const featureRoot = path7.join(projectRoot, "doc", "features");
+  const layout = layoutPaths(projectRoot);
+  const featureRoot = layout.features;
   const definitions = /* @__PURE__ */ new Map();
   const requirementPaths = /* @__PURE__ */ new Map();
   const ownedRequirements = /* @__PURE__ */ new Map();
   if (await exists(featureRoot)) {
-    for (const entry of await readdir3(featureRoot, { withFileTypes: true })) {
+    for (const entry of await readdir7(featureRoot, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
-      const file2 = path7.join(featureRoot, entry.name, "FEATURE.md");
+      const file2 = path12.join(featureRoot, entry.name, layout.featureFile);
       if (!await exists(file2)) continue;
       const data = featureSchema.parse(parseMarkdown(await readText(file2)).data);
-      definitions.set(data.name, { directory: path7.dirname(file2), data });
+      definitions.set(data.name, { directory: path12.dirname(file2), data });
     }
   }
-  const requirementsRoot = path7.join(projectRoot, "doc", "requirements");
+  const requirementsRoot = layout.requirements;
   if (await exists(requirementsRoot)) {
-    for (const entry of await readdir3(requirementsRoot, { withFileTypes: true })) {
+    for (const entry of await readdir7(requirementsRoot, { withFileTypes: true })) {
       if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
-      const file2 = path7.join(requirementsRoot, entry.name);
+      const file2 = path12.join(requirementsRoot, entry.name);
       const parsed = parseMarkdown(await readText(file2)).data;
       if (isForwarder(parsed) || typeof parsed.id !== "string") continue;
       const data = requirementSchema.parse(parsed);
-      const relative = path7.relative(projectRoot, file2);
+      const relative = path12.relative(projectRoot, file2);
       requirementPaths.set(data.id, relative);
       if (data.feature) {
         const requirements = ownedRequirements.get(data.feature) ?? [];
@@ -31834,30 +32545,31 @@ async function selectFeatureContext(projectRoot, requested) {
       if (!(dependency in levels)) levels[dependency] = dependencyLevel;
     }
   }
-  const files2 = /* @__PURE__ */ new Set();
-  const decisions = await featureRecords(projectRoot, path7.join(projectRoot, "doc", "decisions"), decisionSchema);
-  const reports = await featureRecords(projectRoot, path7.join(projectRoot, "doc", "reports"), reportSchema);
+  const files3 = /* @__PURE__ */ new Set();
+  const decisions = await featureRecords(projectRoot, layout.decisions, decisionSchema);
+  const reports = await featureRecords(projectRoot, layout.reports, reportSchema);
   for (const [name, level] of Object.entries(levels)) {
     if (level === "none") continue;
     const feature = definitions.get(name);
     if (level === "contract") {
-      for (const contract of feature.data.contracts) files2.add(contract);
+      for (const contract of feature.data.contracts) files3.add(contract);
     } else {
-      files2.add(path7.relative(projectRoot, path7.join(feature.directory, "FEATURE.md")));
-      for (const contract of feature.data.contracts) files2.add(contract);
-      for (const requirement of feature.data.requirements ?? []) files2.add(requirementPaths.get(requirement) ?? requirement);
-      for (const requirement of ownedRequirements.get(name) ?? []) files2.add(requirement);
+      files3.add(path12.relative(projectRoot, path12.join(feature.directory, layout.featureFile)));
+      for (const contract of feature.data.contracts) files3.add(contract);
+      for (const requirement of feature.data.requirements ?? []) files3.add(requirementPaths.get(requirement) ?? requirement);
+      for (const requirement of ownedRequirements.get(name) ?? []) files3.add(requirement);
       if (level === "deep") {
-        for (const decision of decisions.get(name) ?? []) files2.add(decision);
-        for (const report of reports.get(name) ?? []) files2.add(report);
+        for (const decision of decisions.get(name) ?? []) files3.add(decision);
+        for (const report of reports.get(name) ?? []) files3.add(report);
       }
     }
   }
-  return { levels, files: [...files2].sort() };
+  return { levels, files: [...files3].sort() };
 }
 var init_routing = __esm({
   "src/routing/index.ts"() {
     "use strict";
+    init_layout();
     init_fs();
     init_records();
     init_frontmatter();
@@ -31878,10 +32590,10 @@ function taskContext(task, description, base, feature) {
     DESCRIPTION: description || "Describe the desired outcome."
   });
 }
-function contextManifest(task, levels, files2) {
+function contextManifest(task, levels, files3) {
   const featureYaml = Object.keys(levels).length ? `
 ${Object.entries(levels).map(([name, level]) => `  ${name}: ${level}`).join("\n")}` : " {}";
-  const selected = files2.length ? files2.map((file2) => `- ../../${file2}`).join("\n") : "- No feature bodies selected yet.";
+  const selected = files3.length ? files3.map((file2) => `- ../../${file2}`).join("\n") : "- No feature bodies selected yet.";
   return renderTemplate("task/CONTEXT_MANIFEST.md.template", { TASK_NAME: task, FEATURES_YAML: featureYaml, SELECTED_FILES: selected });
 }
 function taskState(task, branch, baseRef, baseCommit) {
@@ -31895,110 +32607,13 @@ var init_templateFiles2 = __esm({
   }
 });
 
-// src/tasks/transactions.ts
-import { randomUUID } from "node:crypto";
-import { lstat as lstat2, readdir as readdir4, rm as rm2 } from "node:fs/promises";
-import path8 from "node:path";
-async function withProjectLock(root, action) {
-  const target = path8.join(root, ".local/locks/project.lock");
-  const token = randomUUID();
-  if (!await createExclusive(target, JSON.stringify({ token, pid: process.pid }))) throw new Error("Project task state is busy. Inspect the lock; an abandoned lock requires explicit repair-tasks --unlock <token>.");
-  try {
-    return await action();
-  } finally {
-    const saved = JSON.parse(await readText(target));
-    if (saved.token !== token) throw new Error("Project lock ownership changed unexpectedly");
-    await rm2(target);
-  }
-}
-async function pendingTransactions(root) {
-  const directory = path8.join(root, ".local/operations");
-  if (!await exists(directory)) return [];
-  const pending = [];
-  for (const name of (await readdir4(directory)).sort()) {
-    if (!name.endsWith(".json")) continue;
-    const target = path8.join(directory, name);
-    const data = JSON.parse(await readText(target));
-    if (data.status !== "committed") pending.push(target);
-  }
-  return pending;
-}
-async function assertNoPending(root) {
-  if ((await pendingTransactions(root)).length) throw new Error("Task operation is incomplete; run repair-tasks before continuing");
-}
-async function safeTarget(root, relative) {
-  const target = path8.resolve(root, relative);
-  if (!within(path8.join(root, "tasks"), target) || target === path8.join(root, "tasks")) throw new Error("Transaction target escapes task storage");
-  let current = target;
-  while (within(root, current) && current !== root) {
-    try {
-      if ((await lstat2(current)).isSymbolicLink()) throw new Error("Task transaction rejects symlink targets");
-    } catch (error62) {
-      if (error62.code !== "ENOENT") throw error62;
-    }
-    current = path8.dirname(current);
-  }
-  return target;
-}
-async function applyTransaction(root, file2, tx) {
-  if (tx.version !== 1 || !Array.isArray(tx.writes) || !tx.writes.length) throw new Error("Unknown transaction format; preserve operation for manual review");
-  const targets = /* @__PURE__ */ new Set();
-  for (const write of tx.writes) {
-    if (typeof write.path !== "string" || typeof write.after !== "string" || write.before !== null && typeof write.before !== "string") throw new Error("Invalid transaction write");
-    const target = await safeTarget(root, write.path);
-    if (targets.has(target)) throw new Error("Duplicate transaction path");
-    targets.add(target);
-    const current = await exists(target) ? await readText(target) : null;
-    if (current !== write.before && current !== write.after) throw new Error(`Recovery refuses changed task notes: ${write.path}`);
-  }
-  for (const write of tx.writes) await atomicWrite(await safeTarget(root, write.path), write.after);
-  await atomicWrite(file2, JSON.stringify({ ...tx, status: "committed" }));
-}
-async function writeTransaction(root, writes) {
-  await assertNoPending(root);
-  const tx = { version: 1, status: "pending", writes: [] };
-  for (const [target, after] of writes) {
-    const relative = path8.relative(root, target);
-    await safeTarget(root, relative);
-    tx.writes.push({ path: relative, before: await exists(target) ? await readText(target) : null, after });
-  }
-  const file2 = path8.join(root, ".local/operations", `${randomUUID()}.json`);
-  await atomicWrite(file2, JSON.stringify(tx));
-  await applyTransaction(root, file2, tx);
-}
-async function repairTransactions(root, unlock) {
-  if (unlock) {
-    const target = path8.join(root, ".local/locks/project.lock");
-    const lock = JSON.parse(await readText(target));
-    if (lock.token !== unlock || !Number.isInteger(lock.pid) || lock.pid <= 0) throw new Error("Lock identity mismatch");
-    try {
-      process.kill(lock.pid, 0);
-      throw new Error("Lock owner is still alive; cannot unlock");
-    } catch (error62) {
-      if (error62.code !== "ESRCH") throw error62;
-    }
-    await rm2(target);
-  }
-  return withProjectLock(root, async () => {
-    const pending = await pendingTransactions(root);
-    for (const file2 of pending) await applyTransaction(root, file2, JSON.parse(await readText(file2)));
-    return pending;
-  });
-}
-var init_transactions = __esm({
-  "src/tasks/transactions.ts"() {
-    "use strict";
-    init_fs();
-  }
-});
-
 // src/tasks/order.ts
-import { lstat as lstat3 } from "node:fs/promises";
-import path9 from "node:path";
+import { lstat as lstat6 } from "node:fs/promises";
+import path13 from "node:path";
 async function readOrder(root) {
   const file2 = orderPath(root);
   if (!await exists(file2)) return { entries: [], diagnostics: [] };
-  if (!(await lstat3(file2)).isFile()) return { entries: [], diagnostics: ["Task order must be a regular file"] };
+  if (!(await lstat6(file2)).isFile()) return { entries: [], diagnostics: ["Task order must be a regular file"] };
   try {
     const data = parseMarkdown(await readText(file2)).data;
     const diagnostics = [];
@@ -32084,15 +32699,15 @@ var init_order = __esm({
     init_frontmatter();
     init_transactions();
     uuid3 = (value) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-    orderPath = (root) => path9.join(root, "tasks", "ORDER.md");
+    orderPath = (root) => path13.join(root, "tasks", "ORDER.md");
     validPosition = (value) => typeof value === "number" && Number.isSafeInteger(value) && value > 0;
   }
 });
 
 // src/tasks/source.ts
-import { createHash as createHash2 } from "node:crypto";
-import { lstat as lstat4, readdir as readdir5, readFile as readFile3, readlink, realpath as realpath2 } from "node:fs/promises";
-import path10 from "node:path";
+import { createHash as createHash3 } from "node:crypto";
+import { lstat as lstat7, readdir as readdir8, readFile as readFile4, readlink as readlink2, realpath as realpath4 } from "node:fs/promises";
+import path14 from "node:path";
 async function defaultReadOnlySource(root) {
   const state = JSON.parse(await readText(await machineStatePath(root)));
   return sourceSnapshot(root, state.repositoryPath ? { mode: "read-only", path: state.repositoryPath, ownership: "external" } : { mode: "none", ownership: "none" });
@@ -32108,49 +32723,49 @@ function validateSourceBinding(binding) {
 async function sourceSnapshot(projectRoot, binding) {
   validateSourceBinding(binding);
   if (binding.mode === "none") return { mode: "none", ownership: "none", evidence: { kind: "absent" } };
-  const source = await realpath2(binding.path);
-  const context = await realpath2(projectRoot);
+  const source = await realpath4(binding.path);
+  const context = await realpath4(projectRoot);
   if (within(context, source) && binding.mode !== "isolated") throw new Error("Source path cannot be inside context storage");
   if (await isGitRepository(source)) {
-    const root = await realpath2(await git(source, ["rev-parse", "--show-toplevel"]));
+    const root = await realpath4(await git(source, ["rev-parse", "--show-toplevel"]));
     const head = await git(root, ["rev-parse", "--verify", "HEAD"], true) || void 0;
-    const common = await realpath2(path10.resolve(root, await git(root, ["rev-parse", "--git-common-dir"])));
+    const common = await realpath4(path14.resolve(root, await git(root, ["rev-parse", "--git-common-dir"])));
     if (binding.common_dir && common !== binding.common_dir) throw new Error("Source repository identity changed");
-    const specs = ["--", path10.relative(root, source) || "."];
-    if (within(root, context) && root !== context) specs.push(`:(exclude,literal)${path10.relative(root, context)}`);
+    const specs = ["--", path14.relative(root, source) || "."];
+    if (within(root, context) && root !== context) specs.push(`:(exclude,literal)${path14.relative(root, context)}`);
     specs.push(":(exclude,glob)**/.deep-context/**");
     const names = [...new Set((await git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z", ...specs])).split("\0").filter(Boolean))].sort();
     const status = await git(root, ["status", "--porcelain=v1", "-z", ...specs]);
     const staged = await git(root, ["diff", "--binary", "--cached", ...specs]);
-    const hash3 = createHash2("sha256").update(head ?? "unborn").update(status).update(staged);
-    for (const name of names) await hashFile(hash3, path10.join(root, name), name);
-    return { ...binding, path: source, head, common_dir: common, evidence: { kind: "git", source_sha256: hash3.digest("hex"), dirty: Boolean(status), files: names.length } };
+    const hash4 = createHash3("sha256").update(head ?? "unborn").update(status).update(staged);
+    for (const name of names) await hashFile(hash4, path14.join(root, name), name);
+    return { ...binding, path: source, head, common_dir: common, evidence: { kind: "git", source_sha256: hash4.digest("hex"), dirty: Boolean(status), files: names.length } };
   }
-  const hash2 = createHash2("sha256");
+  const hash3 = createHash3("sha256");
   let count = 0;
   async function walk(file2) {
     if (within(context, file2)) return;
     if (++count > 1e4) throw new Error("Select a narrower source: evidence exceeds 10,000 entries");
-    const info = await lstat4(file2);
+    const info = await lstat7(file2);
     if (info.isDirectory()) {
-      for (const entry of (await readdir5(file2)).sort()) await walk(path10.join(file2, entry));
-    } else await hashFile(hash2, file2, path10.relative(source, file2));
+      for (const entry of (await readdir8(file2)).sort()) await walk(path14.join(file2, entry));
+    } else await hashFile(hash3, file2, path14.relative(source, file2));
   }
   await walk(source);
-  return { ...binding, path: source, evidence: { kind: "filesystem", tree_sha256: hash2.digest("hex") } };
+  return { ...binding, path: source, evidence: { kind: "filesystem", tree_sha256: hash3.digest("hex") } };
 }
-async function hashFile(hash2, file2, name) {
-  hash2.update(name).update("\0");
+async function hashFile(hash3, file2, name) {
+  hash3.update(name).update("\0");
   try {
-    const info = await lstat4(file2);
-    if (info.isSymbolicLink()) hash2.update("link:").update(await readlink(file2));
+    const info = await lstat7(file2);
+    if (info.isSymbolicLink()) hash3.update("link:").update(await readlink2(file2));
     else if (info.isFile()) {
       if (info.size > 20 * 1024 * 1024) throw new Error(`Source evidence file exceeds 20 MiB: ${name}`);
-      hash2.update(String(info.mode)).update(await readFile3(file2));
-    } else hash2.update("directory");
+      hash3.update(String(info.mode)).update(await readFile4(file2));
+    } else hash3.update("directory");
   } catch (error62) {
     if (error62.code !== "ENOENT") throw error62;
-    hash2.update("missing");
+    hash3.update("missing");
   }
 }
 async function resolveSourceBinding(root, options) {
@@ -32159,12 +32774,12 @@ async function resolveSourceBinding(root, options) {
   return sourceSnapshot(root, { mode: options.sourceMode, ...options.sourcePath ? { path: options.sourcePath } : {}, ownership: options.ownership ?? (options.sourceMode === "none" ? "none" : options.sourceMode === "isolated" ? "deep-context" : "external") });
 }
 async function createIsolatedSource(root, taskPath, options, taskId) {
-  const overview = parseMarkdown(await readText(path10.join(root, "PROJECT.md"))).data;
+  const overview = parseMarkdown(await readText(path14.join(root, "PROJECT.md"))).data;
   if (overview.source_worktree_policy === "prohibited") throw new Error("Source policy prohibits another editable worktree");
   if (overview.source_worktree_policy !== void 0 && !["allowed", "review-required"].includes(String(overview.source_worktree_policy))) throw new Error("Unknown source worktree policy");
   const base = await resolveSourceBinding(root, options);
   if (!base.path || !base.head || !await isGitRepository(base.path)) throw new Error("Isolated source mode requires a committed Git repository");
-  const target = path10.join(taskPath, "worktree");
+  const target = path14.join(taskPath, "worktree");
   if (await exists(target)) throw new Error("Task worktree already exists without a completed attachment; repair or inspect it before reuse");
   const branch = `deep-context/memory-${taskId}`;
   if (await git(base.path, ["show-ref", "--verify", `refs/heads/${branch}`], true)) throw new Error(`Task branch already exists: ${branch}`);
@@ -32198,10 +32813,15 @@ __export(memory_exports, {
   validateMemoryTasks: () => validateMemoryTasks,
   withProjectLock: () => withProjectLock
 });
-import { randomUUID as randomUUID2 } from "node:crypto";
-import { existsSync as existsSync2 } from "node:fs";
-import { lstat as lstat5, readdir as readdir6, realpath as realpath3 } from "node:fs/promises";
-import path11 from "node:path";
+import { randomUUID as randomUUID4 } from "node:crypto";
+import { existsSync as existsSync3 } from "node:fs";
+import { lstat as lstat8, readdir as readdir9, realpath as realpath5 } from "node:fs/promises";
+import path15 from "node:path";
+async function assertNoPendingLayout(root) {
+  await assertNoPending(root);
+  await assertNoPendingContext(root);
+  await assertNoPendingFilenameOperations(root);
+}
 function checkIdentity(options) {
   if (options.bindingId && !uuid5(options.bindingId)) throw new Error("Invalid binding ID");
   if (options.chatId != null && !/^[A-Za-z0-9._:-]{1,200}$/.test(options.chatId)) throw new Error("Invalid chat ID");
@@ -32211,20 +32831,20 @@ function checkRevision(state, options) {
   if (options.expectedRevision !== state.state_revision) throw new Error("Task state revision changed; reload before saving");
 }
 function statePath(task) {
-  return path11.join(task.root, "TASK_STATE.md");
+  return path15.join(task.root, "TASK_STATE.md");
 }
 function chatPath(task, id) {
   if (!uuid5(id)) throw new Error("Invalid binding ID");
-  return path11.join(task.root, "chats", id, "MEMORY.md");
+  return path15.join(task.root, "chats", id, "MEMORY.md");
 }
 function stateText(task) {
   return renderMarkdown(task.state, task.body);
 }
 async function regularFile(file2) {
-  if (!(await lstat5(file2)).isFile()) throw new Error(`Canonical task file must be regular: ${file2}`);
+  if (!(await lstat8(file2)).isFile()) throw new Error(`Canonical task file must be regular: ${file2}`);
 }
 async function readTask(root) {
-  const file2 = path11.join(root, "TASK_STATE.md");
+  const file2 = path15.join(root, "TASK_STATE.md");
   await regularFile(file2);
   const doc = parseMarkdown(await readText(file2));
   const version2 = doc.data.schema_version;
@@ -32234,20 +32854,52 @@ async function readTask(root) {
   const s = doc.data;
   if (!uuid5(s.task_id) || typeof s.title !== "string" || typeof s.task !== "string" || !Number.isInteger(s.state_revision) || s.state_revision < 1 || !["active", "closed"].includes(s.status) || s.owner_binding_id !== null && !uuid5(s.owner_binding_id)) throw new Error(`Invalid task metadata: ${file2}`);
   validateSourceBinding(s.source_binding);
-  if (s.status === "active" && s.task !== path11.basename(root)) throw new Error("Task folder identity mismatch");
-  if (s.source_binding.ownership === "deep-context" && path11.resolve(s.source_binding.path) !== path11.join(root, "worktree") && s.status !== "closed") throw new Error("Owned checkout escapes task worktree");
+  if (s.work_items !== void 0 && (!Array.isArray(s.work_items) || s.work_items.some((item) => typeof item !== "string"))) throw new Error(`Invalid task work items: ${file2}`);
+  if (s.status === "active" && s.task !== path15.basename(root)) throw new Error("Task folder identity mismatch");
+  if (s.source_binding.ownership === "deep-context" && path15.resolve(s.source_binding.path) !== path15.join(root, "worktree") && s.status !== "closed") throw new Error("Owned checkout escapes task worktree");
   return { root, state: s, body: doc.body, legacy };
+}
+async function linkWorkItems(root, taskId, ids, writes) {
+  const unique = [...new Set(ids ?? [])];
+  if (!unique.length) return [];
+  const canonical = [];
+  const layout = layoutPaths(root);
+  if (!layout.compact) throw new Error("Work-item links require the compact layout");
+  for (const id of unique) {
+    const file2 = await canonicalRecordById(layout.work, id);
+    if (!file2) throw new Error(`Unknown work item: ${id}`);
+    const document = parseMarkdown(await readText(file2));
+    const item = workItemSchema.parse(document.data);
+    canonical.push(item.id);
+    const tasks2 = [.../* @__PURE__ */ new Set([...item.tasks, taskId])];
+    if (tasks2.length !== item.tasks.length) {
+      document.data.tasks = tasks2;
+      writes.set(file2, renderMarkdown(document.data, document.body));
+    }
+  }
+  return [...new Set(canonical)];
+}
+async function newTaskFolder(root, title, taskId) {
+  const slug = normalizeTaskName(title).slice(0, 64);
+  if (!layoutPaths(root).compact) return `${slug}--${taskId}`;
+  const directory = path15.join(root, "tasks");
+  const existing = new Set((await exists(directory) ? await readdir9(directory) : []).map((name) => name.toLowerCase()));
+  for (let index = 1; ; index++) {
+    const candidate = `${slug}${index === 1 ? "" : `-${index}`}`;
+    if (!existing.has(candidate.toLowerCase())) return candidate;
+  }
 }
 async function tasks(root) {
   const result2 = [];
-  for (const folder of ["tasks", ".local/archives", "doc/reports/closures"]) {
-    const base = path11.join(root, folder);
+  const layout = layoutPaths(root);
+  for (const folder of ["tasks", ".local/archives", path15.relative(root, path15.join(layout.reports, "closures"))]) {
+    const base = path15.join(root, folder);
     if (!await exists(base)) continue;
-    for (const entry of await readdir6(base, { withFileTypes: true })) {
+    for (const entry of await readdir9(base, { withFileTypes: true })) {
       if (entry.isSymbolicLink()) throw new Error("Task directory cannot be a symlink");
       if (!entry.isDirectory()) continue;
-      const candidate = path11.join(base, entry.name);
-      if (await exists(path11.join(candidate, "TASK_STATE.md"))) result2.push(await readTask(candidate));
+      const candidate = path15.join(base, entry.name);
+      if (await exists(path15.join(candidate, "TASK_STATE.md"))) result2.push(await readTask(candidate));
     }
   }
   const ids = /* @__PURE__ */ new Set();
@@ -32258,11 +32910,11 @@ async function tasks(root) {
   return result2;
 }
 async function bindings(task) {
-  const root = path11.join(task.root, "chats");
+  const root = path15.join(task.root, "chats");
   if (!await exists(root)) return [];
-  if (!(await lstat5(root)).isDirectory() || (await lstat5(root)).isSymbolicLink()) throw new Error("Invalid chat memory directory");
+  if (!(await lstat8(root)).isDirectory() || (await lstat8(root)).isSymbolicLink()) throw new Error("Invalid chat memory directory");
   const result2 = [];
-  for (const entry of await readdir6(root, { withFileTypes: true })) {
+  for (const entry of await readdir9(root, { withFileTypes: true })) {
     if (!entry.isDirectory() || !uuid5(entry.name)) throw new Error("Invalid chat memory entry");
     const file2 = chatPath(task, entry.name);
     await regularFile(file2);
@@ -32286,7 +32938,7 @@ async function association(root, chatId, selector) {
   if (active.length) return active[0];
   if (found.length === 1) return found[0];
   if (new Set(found.map((entry) => entry.task.state.task_id)).size === 1) return latestAssociation(found);
-  const matching = selector ? found.filter((entry) => entry.task.state.task_id === selector || entry.task.state.task === selector || entry.task.state.title === selector || entry.task.root === path11.resolve(selector) || entry.task.root === path11.resolve(root, selector)) : [];
+  const matching = selector ? found.filter((entry) => entry.task.state.task_id === selector || entry.task.state.task === selector || entry.task.state.title === selector || entry.task.root === path15.resolve(selector) || entry.task.root === path15.resolve(root, selector)) : [];
   if (matching.length === 1) return { ...matching[0], ambiguous: true };
   if (matching.length > 1) return { ...latestAssociation(matching), ambiguous: true };
   if (found.length) return { ...latestAssociation(found), ambiguous: true };
@@ -32296,20 +32948,22 @@ function latestAssociation(found) {
   return [...found].sort((a, b) => `${String(b.binding.created_at ?? "")}:${b.binding.binding_id}`.localeCompare(`${String(a.binding.created_at ?? "")}:${a.binding.binding_id}`))[0];
 }
 async function select(root, selector) {
-  const candidates = (await tasks(root)).filter((t) => t.state.task_id === selector || t.state.task === selector || t.state.title === selector || t.root === path11.resolve(selector) || t.root === path11.resolve(root, selector));
+  const candidates = (await tasks(root)).filter((t) => t.state.task_id === selector || t.state.task === selector || t.state.title === selector || t.root === path15.resolve(selector) || t.root === path15.resolve(root, selector));
   if (candidates.length !== 1) throw new Error(candidates.length ? "Task selector is ambiguous; use UUID or path" : `Unknown task: ${selector}`);
   return candidates[0];
 }
 function result(task, binding = null) {
-  const parent = path11.basename(path11.dirname(task.root));
-  const project = parent === "archives" ? path11.resolve(task.root, "../../..") : parent === "closures" ? path11.resolve(task.root, "../../../..") : path11.resolve(task.root, "../..");
+  const parent = path15.basename(path15.dirname(task.root));
+  const project = parent === "archives" ? path15.resolve(task.root, "../../..") : parent === "closures" ? path15.resolve(task.root, "../../../..") : path15.resolve(task.root, "../..");
   const bindingId = binding?.binding_id ?? null;
   const reportId = `CLOSURE-${task.state.task_id.toUpperCase()}`;
+  const layout = layoutPaths(project);
   const closureReports = task.legacy ? [] : [
-    path11.join(project, "doc", "reports", "closures", recordFilename(reportId, `Closure of ${task.state.task}`, "closure")),
-    path11.join(project, "doc", "reports", "closures", `${task.state.task_id}.md`)
+    ...typeof task.state.closure_report === "string" ? [path15.resolve(project, task.state.closure_report)] : [],
+    path15.join(layout.reports, "closures", recordFilename(reportId, `Closure of ${task.state.task}`, "closure")),
+    path15.join(layout.reports, "closures", `${task.state.task_id}.md`)
   ];
-  const closedReport = [...closureReports, path11.join(task.root, "REPORT.md")].find(existsSync2);
+  const closedReport = [...closureReports, path15.join(task.root, "REPORT.md")].find(existsSync3);
   return {
     taskId: task.state.task_id,
     taskPath: task.root,
@@ -32322,7 +32976,7 @@ function result(task, binding = null) {
     ownerBindingId: task.state.owner_binding_id,
     stateRevision: task.state.state_revision,
     sourceBinding: task.state.source_binding,
-    requiredReads: [...task.state.status === "closed" ? closedReport ? [closedReport] : [] : [path11.join(project, "AGENTS.md"), path11.join(project, "CONTEXT_MAP.md")], ...["AGENTS.md", "TASK_CONTEXT.md", "CONTEXT_MANIFEST.md", "TASK_STATE.md", "WORKLOG.md"].map((f) => path11.join(task.root, f)), ...uuid5(task.state.predecessor_binding_id) ? [chatPath(task, task.state.predecessor_binding_id)] : [], ...uuid5(task.state.last_binding_id) && task.state.last_binding_id !== task.state.predecessor_binding_id ? [chatPath(task, task.state.last_binding_id)] : [], ...bindingId ? [chatPath(task, bindingId)] : []]
+    requiredReads: [...task.state.status === "closed" ? closedReport ? [closedReport] : [] : [path15.join(project, "AGENTS.md"), path15.join(project, "CONTEXT_MAP.md")], ...["AGENTS.md", "TASK_CONTEXT.md", "CONTEXT_MANIFEST.md", "TASK_STATE.md", "WORKLOG.md"].map((f) => path15.join(task.root, f)), ...uuid5(task.state.predecessor_binding_id) ? [chatPath(task, task.state.predecessor_binding_id)] : [], ...uuid5(task.state.last_binding_id) && task.state.last_binding_id !== task.state.predecessor_binding_id ? [chatPath(task, task.state.last_binding_id)] : [], ...bindingId ? [chatPath(task, bindingId)] : []]
   };
 }
 async function resolveMemoryTask(root, selector, options = {}) {
@@ -32379,14 +33033,15 @@ async function startMemoryTask(root, options) {
   if (options.runtime && options.runtime !== "codex") throw new Error("Only local Codex chat bindings are supported");
   const initialContext = validateInitialContext(options.initialContext);
   return withProjectLock(root, async () => {
-    await assertNoPending(root);
+    await assertNoPendingLayout(root);
     const bound = await association(root, options.chatId);
     if (bound?.ambiguous) throw new Error("Chat has multiple historical task associations; select a task for read-only resolution");
     if (bound) return result(bound.task, bound.binding);
-    const id = randomUUID2(), bindingId = randomUUID2();
+    const projectRoot = await realpath5(root);
+    const id = randomUUID4(), bindingId = randomUUID4();
     const title = options.name?.trim() || options.description.trim().split(/\r?\n/, 1)[0].slice(0, 100);
-    const folder = `${normalizeTaskName(title).slice(0, 64)}--${id}`;
-    const taskRoot = path11.join(await realpath3(root), "tasks", folder);
+    const folder = await newTaskFolder(projectRoot, title, id);
+    const taskRoot = path15.join(projectRoot, "tasks", folder);
     if (options.sourceBinding && !["none", "read-only"].includes(options.sourceBinding.mode)) throw new Error("Start creates memory only; use attach-source for editable checkouts");
     const source = options.sourceBinding ? await sourceSnapshot(root, options.sourceBinding) : await defaultReadOnlySource(root);
     if (options.predecessorTaskId && (await select(root, options.predecessorTaskId)).state.status !== "closed") throw new Error("Predecessor must be a closed task");
@@ -32395,9 +33050,9 @@ async function startMemoryTask(root, options) {
     const selection = options.feature ? await selectFeatureContext(root, { [options.feature]: "feature" }) : { levels: {}, files: [] };
     const writes = /* @__PURE__ */ new Map([
       [statePath(task), stateText(task)],
-      [path11.join(taskRoot, "AGENTS.md"), taskAgents(title)],
-      [path11.join(taskRoot, "TASK_CONTEXT.md"), renderMarkdown({ task_id: id }, initialTaskBody(options.description, initialContext))],
-      [path11.join(taskRoot, "CONTEXT_MANIFEST.md"), renderMarkdown({ task_id: id, context_version: 1, features: selection.levels }, `# Context Manifest
+      [path15.join(taskRoot, "AGENTS.md"), taskAgents(title)],
+      [path15.join(taskRoot, "TASK_CONTEXT.md"), renderMarkdown({ task_id: id }, initialTaskBody(options.description, initialContext))],
+      [path15.join(taskRoot, "CONTEXT_MANIFEST.md"), renderMarkdown({ task_id: id, context_version: 1, features: selection.levels }, `# Context Manifest
 
 ## Always Load
 
@@ -32405,8 +33060,8 @@ async function startMemoryTask(root, options) {
 - ../../CONTEXT_MAP.md
 - TASK_CONTEXT.md
 - TASK_STATE.md
-- ../../doc/FEATURES.md
-- ../../doc/REQUIREMENTS.md
+- ../../${layoutPaths(root).compact ? "docs/features/INDEX.md" : "doc/FEATURES.md"}
+- ../../${layoutPaths(root).compact ? "docs/requirements/INDEX.md" : "doc/REQUIREMENTS.md"}
 
 ## Selected Context
 
@@ -32414,9 +33069,11 @@ ${selection.files.map((f) => "- ../../" + f).join("\n") || "No feature bodies se
 
 Dependencies start at contract level and never recursively expand without evidence.
 `)],
-      [path11.join(taskRoot, "WORKLOG.md"), "# Worklog\n\nTask history; promote durable conclusions before closure.\n"],
+      [path15.join(taskRoot, "WORKLOG.md"), "# Worklog\n\nTask history; promote durable conclusions before closure.\n"],
       [chatPath(task, bindingId), renderMarkdown(newBinding(id, bindingId, options.chatId), chatBody)]
     ]);
+    if (layoutPaths(root).compact) state.work_items = await linkWorkItems(root, id, options.workItems, writes);
+    writes.set(statePath(task), stateText(task));
     await writeTransaction(root, writes);
     return result(task, newBinding(id, bindingId, options.chatId));
   });
@@ -32448,17 +33105,32 @@ ${value.trim()}
 async function resumeMemoryTask(root, selector, options = {}) {
   checkIdentity(options);
   return withProjectLock(root, async () => {
-    await assertNoPending(root);
+    await assertNoPendingLayout(root);
     const task = await select(root, selector);
     if (task.state.status === "closed") throw new Error("Closed tasks cannot be resumed; start a new task with a predecessor link");
     if (task.state.pending_source) throw new Error("Source attachment needs repair-tasks before resume");
     const bound = await association(root, options.chatId, selector);
     if (bound?.ambiguous) throw new Error("Chat has multiple historical task associations; mutations require manual recovery");
     if (bound && bound.task.root !== task.root) throw new Error("This chat is associated with another task; open a new chat for different work");
-    if (bound && bound.binding.binding_id === task.state.owner_binding_id) return result(task, bound.binding);
+    if (bound && bound.binding.binding_id === task.state.owner_binding_id && !options.workItems?.length) return result(task, bound.binding);
     const explicitBinding = options.bindingId && !options.chatId ? (await bindings(task)).find((b) => b.binding_id === options.bindingId) : void 0;
     if (options.bindingId && !options.chatId && !explicitBinding) throw new Error("Unknown binding ID for task");
-    if (explicitBinding?.binding_id === task.state.owner_binding_id) return result(task, explicitBinding);
+    if (explicitBinding?.binding_id === task.state.owner_binding_id && !options.workItems?.length) return result(task, explicitBinding);
+    const currentOwner = [bound?.binding, explicitBinding].find((binding) => binding?.binding_id === task.state.owner_binding_id && binding.status === "active");
+    if (currentOwner && options.workItems?.length) {
+      if (!task.legacy) checkRevision(task.state, options);
+      const writes2 = /* @__PURE__ */ new Map();
+      const links2 = await linkWorkItems(root, task.state.task_id, options.workItems, writes2);
+      const next = [.../* @__PURE__ */ new Set([...task.state.work_items ?? [], ...links2])];
+      if (next.length !== (task.state.work_items ?? []).length) {
+        task.state.work_items = next;
+        task.state.state_revision++;
+        task.state.updated_at = (/* @__PURE__ */ new Date()).toISOString();
+        writes2.set(statePath(task), stateText(task));
+        await writeTransaction(root, writes2);
+      }
+      return result(task, currentOwner);
+    }
     const priorBinding = bound?.binding ?? explicitBinding;
     if (task.state.owner_binding_id && !options.takeover) throw new Error("Task has another owner; explicit --takeover is required");
     if (!task.legacy) checkRevision(task.state, options);
@@ -32467,13 +33139,13 @@ async function resumeMemoryTask(root, selector, options = {}) {
       const old = parseMarkdown(await readText(statePath(task))).data;
       let source = { mode: "none", ownership: "none" };
       if (old.worktree) {
-        const worktree = await realpath3(path11.resolve(task.root, String(old.worktree)));
-        if (worktree !== path11.join(task.root, "worktree") || await git(worktree, ["branch", "--show-current"]) !== old.branch) throw new Error("Legacy worktree identity mismatch");
+        const worktree = await realpath5(path15.resolve(task.root, String(old.worktree)));
+        if (worktree !== path15.join(task.root, "worktree") || await git(worktree, ["branch", "--show-current"]) !== old.branch) throw new Error("Legacy worktree identity mismatch");
         source = await sourceSnapshot(root, { mode: "isolated", path: worktree, ownership: "deep-context" });
       }
-      task.state = { ...old, schema_version: 2, task_id: randomUUID2(), task: path11.basename(task.root), title: String(old.task), owner_binding_id: null, state_revision: 0, status: "active", source_binding: source, migrated_at: (/* @__PURE__ */ new Date()).toISOString() };
+      task.state = { ...old, schema_version: 2, task_id: randomUUID4(), task: path15.basename(task.root), title: String(old.task), owner_binding_id: null, state_revision: 0, status: "active", source_binding: source, migrated_at: (/* @__PURE__ */ new Date()).toISOString() };
       task.legacy = false;
-      const reviewPath = path11.join(task.root, "CLOSURE_REVIEW.md");
+      const reviewPath = path15.join(task.root, "CLOSURE_REVIEW.md");
       if (await exists(reviewPath)) {
         const review = parseMarkdown(await readText(reviewPath));
         review.data.status = "stale";
@@ -32488,6 +33160,8 @@ async function resumeMemoryTask(root, selector, options = {}) {
       task.state.state_revision++;
       task.state.updated_at = (/* @__PURE__ */ new Date()).toISOString();
       writes.set(file2, renderMarkdown(restored.data, restored.body));
+      const links2 = await linkWorkItems(root, task.state.task_id, options.workItems, writes);
+      if (links2.length) task.state.work_items = [.../* @__PURE__ */ new Set([...task.state.work_items ?? [], ...links2])];
       writes.set(statePath(task), stateText(task));
       await writeTransaction(root, writes);
       return result(task, { ...priorBinding, status: "active" });
@@ -32500,12 +33174,14 @@ async function resumeMemoryTask(root, selector, options = {}) {
     }
     const predecessor = task.state.owner_binding_id ?? task.state.last_binding_id;
     if (uuid5(predecessor)) task.state.predecessor_binding_id = predecessor;
-    const id = priorBinding?.status === "released" ? priorBinding.binding_id : randomUUID2();
+    const id = priorBinding?.status === "released" ? priorBinding.binding_id : randomUUID4();
     task.state.owner_binding_id = id;
     task.state.state_revision++;
     task.state.updated_at = (/* @__PURE__ */ new Date()).toISOString();
     const created = priorBinding?.status === "released" ? { ...priorBinding, status: "active" } : newBinding(task.state.task_id, id, options.chatId);
     const existingMemory = priorBinding?.status === "released" ? parseMarkdown(await readText(chatPath(task, id))).body : chatBody;
+    const links = await linkWorkItems(root, task.state.task_id, options.workItems, writes);
+    if (links.length) task.state.work_items = [.../* @__PURE__ */ new Set([...task.state.work_items ?? [], ...links])];
     writes.set(chatPath(task, id), renderMarkdown(created, existingMemory));
     writes.set(statePath(task), stateText(task));
     await writeTransaction(root, writes);
@@ -32514,7 +33190,7 @@ async function resumeMemoryTask(root, selector, options = {}) {
 }
 async function saveMemoryTask(root, selector, options) {
   return withProjectLock(root, async () => {
-    await assertNoPending(root);
+    await assertNoPendingLayout(root);
     if ((await association(root, options.chatId, selector))?.ambiguous) throw new Error("Chat has multiple historical task associations; mutations require manual recovery");
     const task = await select(root, selector);
     const binding = await assertMemoryOwner(task.root, options);
@@ -32537,10 +33213,10 @@ async function saveMemoryTask(root, selector, options) {
       for (const [key, heading] of sections) {
         const value = checkpoint[key];
         if (value === void 0 || !value.trim()) continue;
-        const current = task.body.match(new RegExp("## " + heading + "\\n\\n([\\s\\S]*?)(?=\\n## |$)"))?.[1]?.trim();
-        if (current === value.trim() || key !== "nextAction" && current?.includes(value.trim())) continue;
-        const previous = current && !["- None yet.", "- None.", "- Ready to begin."].includes(current) ? current : "";
-        task.body = replaceSection(task.body, heading, key === "nextAction" ? value : [previous, value].filter(Boolean).join("\n\n"));
+        const existing = sectionBodies(task.body, heading);
+        const current = existing.at(-1);
+        if (existing.length === 1 && current === value.trim()) continue;
+        task.body = replaceSection(task.body, heading, value);
         chatEntries.push(`### ${heading}
 
 ${value}`);
@@ -32549,7 +33225,7 @@ ${value}`);
     }
     const snapshot = await sourceSnapshot(root, task.state.source_binding);
     if (JSON.stringify(snapshot) !== JSON.stringify(task.state.source_binding)) {
-      const previousBlockers = task.body.match(/## Active Work and Blockers\n\n([\s\S]*?)(?=\n## |$)/)?.[1]?.trim() ?? "";
+      const previousBlockers = sectionBodies(task.body, "Active Work and Blockers").at(-1) ?? "";
       task.body = replaceSection(task.body, "Active Work and Blockers", previousBlockers + "\n\nSource changed since the previous checkpoint. Revalidate source-dependent findings.");
     }
     task.state.source_binding = snapshot;
@@ -32578,7 +33254,7 @@ function validateCheckpoint(value) {
 }
 async function attachMemorySource(root, selector, options) {
   return withProjectLock(root, async () => {
-    await assertNoPending(root);
+    await assertNoPendingLayout(root);
     if ((await association(root, options.chatId, selector))?.ambiguous) throw new Error("Chat has multiple historical task associations; mutations require manual recovery");
     const task = await select(root, selector);
     const owner = await assertMemoryOwner(task.root, options);
@@ -32589,11 +33265,11 @@ async function attachMemorySource(root, selector, options) {
     const identity2 = previous.common_dir ?? attached.common_dir;
     if (identity2 && candidate.common_dir !== identity2) throw new Error("Attached source does not share the project repository identity");
     if (options.sourceMode === "isolated") {
-      const policy = parseMarkdown(await readText(path11.join(root, "PROJECT.md"))).data.source_worktree_policy;
+      const policy = parseMarkdown(await readText(path15.join(root, "PROJECT.md"))).data.source_worktree_policy;
       if (policy === "prohibited") throw new Error("Source policy prohibits another editable worktree");
       if (policy !== void 0 && !["allowed", "review-required"].includes(String(policy))) throw new Error("Unknown source worktree policy");
       if (!candidate.head || !candidate.common_dir) throw new Error("Isolated source mode requires a committed Git repository");
-      if (await exists(path11.join(task.root, "worktree"))) throw new Error("Task worktree already exists; repair or inspect it before reuse");
+      if (await exists(path15.join(task.root, "worktree"))) throw new Error("Task worktree already exists; repair or inspect it before reuse");
       if (await git(candidate.path, ["show-ref", "--verify", `refs/heads/deep-context/memory-${task.state.task_id}`], true)) throw new Error("Task branch already exists; inspect before attachment");
       task.state.pending_source = { ...options, sourcePath: candidate.path, task_id: task.state.task_id };
       task.state.state_revision++;
@@ -32617,10 +33293,10 @@ async function rebuildChatIndex(root) {
         if (active.has(b.runtime_chat_id)) throw new Error("Conflicting active chat associations");
         active.add(b.runtime_chat_id);
       }
-      entries.push({ ...b, task_path: path11.relative(root, task.root), task_status: task.state.status });
+      entries.push({ ...b, task_path: path15.relative(root, task.root), task_status: task.state.status });
     }
     entries.sort((a, b) => String(a.binding_id).localeCompare(String(b.binding_id)));
-    const target = path11.join(root, ".local/chat-index.json");
+    const target = path15.join(root, ".local/chat-index.json");
     await atomicWrite(target, JSON.stringify({ schema_version: 1, bindings: entries }, null, 2) + "\n");
     return target;
   });
@@ -32635,11 +33311,20 @@ async function validateMemoryTasks(root) {
     for (const task of taskRecords) {
       if (task.state.pending_source) errors.push("Source attachment needs repair");
       if (task.legacy) continue;
-      for (const file2 of ["AGENTS.md", "TASK_CONTEXT.md", "CONTEXT_MANIFEST.md", "WORKLOG.md"]) await regularFile(path11.join(task.root, file2));
+      for (const file2 of ["AGENTS.md", "TASK_CONTEXT.md", "CONTEXT_MANIFEST.md", "WORKLOG.md"]) await regularFile(path15.join(task.root, file2));
       for (const b of await bindings(task)) {
         if (b.status === "active" && b.runtime_chat_id) {
           if (chats.has(b.runtime_chat_id)) errors.push("Duplicate active chat ID");
           chats.add(b.runtime_chat_id);
+        }
+      }
+      if (!task.legacy && task.state.work_items !== void 0) {
+        const layout = layoutPaths(root);
+        if (!layout.compact) errors.push(`Task ${task.state.task_id} has compact work links in a legacy project`);
+        else for (const workId of task.state.work_items) {
+          const file2 = await canonicalRecordById(layout.work, workId);
+          if (!file2) errors.push(`Task ${task.state.task_id} references unknown work item ${workId}`);
+          else if (!workItemSchema.parse(parseMarkdown(await readText(file2)).data).tasks.includes(task.state.task_id)) errors.push(`Work item ${workId} is missing reverse task link ${task.state.task_id}`);
         }
       }
     }
@@ -32654,7 +33339,7 @@ async function repairMemoryTasks(root, unlock) {
     for (const task of await tasks(root)) {
       const pending = task.state.pending_source;
       if (!pending) continue;
-      const target = path11.join(task.root, "worktree");
+      const target = path15.join(task.root, "worktree");
       if (await exists(target)) {
         const source = await sourceSnapshot(root, { mode: "isolated", path: target, ownership: "deep-context" });
         const base = await sourceSnapshot(root, { mode: "read-only", path: pending.sourcePath, ownership: "external" });
@@ -32673,9 +33358,22 @@ async function repairMemoryTasks(root, unlock) {
 function taskBody(description) {
   return "# Task State\n\n## Objective and Acceptance\n\n" + description + "\n\n## Completed Work and Evidence\n\n- None yet.\n\n## Active Work and Blockers\n\n- Ready to begin.\n\n## Decisions and Discoveries Awaiting Promotion\n\n- None.\n\n## Open Questions\n\n- None.\n\n## Exact Next Safe Action\n\nRead the manifest and define acceptance evidence before implementation.\n";
 }
+function sectionBodies(body, heading) {
+  const expression = new RegExp("(?:^|\\n)## " + heading + "\\n(?:\\n)?([\\s\\S]*?)(?=\\n## |$)", "g");
+  return [...body.matchAll(expression)].map((match) => match[1].trim());
+}
 function replaceSection(body, heading, value) {
-  const expression = new RegExp("(## " + heading + "\\n\\n)([\\s\\S]*?)(?=\\n## |$)");
-  return expression.test(body) ? body.replace(expression, (_match, prefix) => prefix + value.trim() + "\n") : body.trimEnd() + "\n\n## " + heading + "\n\n" + value.trim() + "\n";
+  const expression = new RegExp("(^|\\n)## " + heading + "\\n(?:\\n)?[\\s\\S]*?(?=\\n## |$)", "g");
+  let replaced = false;
+  const updated = body.replace(expression, (match) => {
+    if (replaced) return "";
+    replaced = true;
+    return `${match.startsWith("\n") ? "\n" : ""}## ${heading}
+
+${value.trim()}
+`;
+  });
+  return replaced ? updated : body.trimEnd() + "\n\n## " + heading + "\n\n" + value.trim() + "\n";
 }
 var uuid5, chatBody;
 var init_memory = __esm({
@@ -32684,191 +33382,206 @@ var init_memory = __esm({
     init_fs();
     init_names();
     init_records();
+    init_layout();
     init_git();
     init_frontmatter();
+    init_schemas3();
     init_routing();
     init_templateFiles2();
     init_order();
     init_source();
     init_transactions();
+    init_transactions2();
+    init_transactions3();
     init_transactions();
     uuid5 = (value) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
     chatBody = "# Chat Memory\n\n## Discoveries\n\n- None yet.\n\n## Handoff\n\nRead TASK_STATE.md for the next safe action.\n";
   }
 });
 
-// src/backlog/transactions.ts
-import { randomUUID as randomUUID3 } from "node:crypto";
-import { lstat as lstat6, readdir as readdir7 } from "node:fs/promises";
-import path12 from "node:path";
-function operationDirectory(root) {
-  return path12.join(root, ".local", "context-operations");
-}
-async function safeTarget2(root, relative) {
-  const target = path12.resolve(root, relative);
-  const backlog = path12.join(root, "doc", "backlog");
-  const active = path12.join(root, "doc", "active");
-  if ((!within(backlog, target) || target === backlog) && (!within(active, target) || target === active)) throw new Error("Context operation target is outside Backlog or Active storage");
-  if (!target.endsWith(".md")) throw new Error("Context operation target must be Markdown");
-  let current = target;
-  while (current !== root && within(root, current)) {
+// src/validation/compact.ts
+import { createHash as createHash4 } from "node:crypto";
+import { lstat as lstat9, readFile as readFile5, readlink as readlink3 } from "node:fs/promises";
+import path16 from "node:path";
+async function validateCompactProject(root) {
+  const p = layoutPaths(root), diagnostics = [];
+  const error62 = (code, message, file2) => diagnostics.push({ level: "error", code, message, path: file2 });
+  for (const file2 of ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md", "docs/architecture.md", ".local/state.json"]) if (!await exists(path16.join(root, file2))) error62("missing-required", `Missing required file: ${file2}`, file2);
+  for (const retired of ["doc", "docs/plan", "START_HERE.md", "repo"]) {
     try {
-      if ((await lstat6(current)).isSymbolicLink()) throw new Error("Context operation rejects symlink target");
-    } catch (error62) {
-      if (error62.code !== "ENOENT") throw error62;
+      await lstat9(path16.join(root, retired));
+      error62("retired-layout-path", `Retired live path: ${retired}`, retired);
+    } catch (e) {
+      if (e.code !== "ENOENT") throw e;
     }
-    current = path12.dirname(current);
   }
-  return target;
-}
-async function pendingContextOperations(root) {
-  const directory = operationDirectory(root);
-  if (!await exists(directory)) return [];
-  const result2 = [];
-  for (const name of (await readdir7(directory)).sort()) {
-    if (!name.endsWith(".json")) continue;
-    const file2 = path12.join(directory, name);
-    const operation = JSON.parse(await readText(file2));
-    if (operation.status !== "committed") result2.push(file2);
+  for (const name of ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md"]) {
+    const file2 = path16.join(root, name);
+    if (await exists(file2) && /(^|[^A-Za-z0-9_.-])(?:repo|doc)\//m.test(await readText(file2))) error62("retired-startup-route", `Startup route still names a retired context path: ${name}`, file2);
   }
-  return result2;
-}
-async function assertNoPendingContext(root) {
-  if ((await pendingContextOperations(root)).length) throw new Error("Backlog operation needs repair-context before new changes");
-}
-async function applyOperation(root, file2, operation) {
-  if (operation.version !== 1 || !Array.isArray(operation.writes) || !operation.writes.length) throw new Error("Invalid Backlog recovery journal");
-  const targets = /* @__PURE__ */ new Set();
-  for (const write of operation.writes) {
-    if (typeof write.path !== "string" || typeof write.after !== "string" || write.before !== null && typeof write.before !== "string") throw new Error("Invalid Backlog recovery write");
-    const target = await safeTarget2(root, write.path);
-    if (targets.has(target)) throw new Error("Duplicate Backlog recovery path");
-    targets.add(target);
-    const current = await exists(target) ? await readText(target) : null;
-    if (current !== write.before && current !== write.after) throw new Error(`Recovery refuses changed context: ${write.path}`);
+  try {
+    const state = JSON.parse(await readText(path16.join(root, ".local/state.json")));
+    if (typeof state.repositoryPath === "string") for (const name of ["AGENTS.md", "START_HERE.md", "CLAUDE.md"]) {
+      const file2 = path16.join(state.repositoryPath, name);
+      if (await exists(file2) && /\.deep-context\/(?:doc|repo)(?:\/|\b)|\.deep-context\/START_HERE\.md/.test(await readText(file2))) error62("retired-source-startup-route", `Source startup still names a retired context path: ${name}`, file2);
+    }
+  } catch (e) {
+    error62("invalid-project-state", String(e), path16.join(root, ".local/state.json"));
   }
-  for (const write of operation.writes) await atomicWrite(await safeTarget2(root, write.path), write.after);
-  await atomicWrite(file2, JSON.stringify({ ...operation, status: "committed" }));
-}
-async function writeContextOperation(root, writes) {
-  await assertNoPendingContext(root);
-  const operation = { version: 1, status: "pending", writes: [] };
-  for (const [target, after] of writes) {
-    const safe = await safeTarget2(root, path12.relative(root, target));
-    operation.writes.push({ path: path12.relative(root, safe), before: await exists(safe) ? await readText(safe) : null, after });
+  const ids = /* @__PURE__ */ new Map();
+  const collections2 = {};
+  const warning = (code, message, file2) => diagnostics.push({ level: "warning", code, message, path: file2 });
+  for (const [name, directory, schema] of [["features", p.features, featureSchema], ["requirements", p.requirements, requirementSchema], ["decisions", p.decisions, decisionSchema], ["reports", p.reports, reportSchema], ["sources", p.sources, sourceSchema], ["work", p.work, workItemSchema]]) {
+    collections2[name] = [];
+    let records2;
+    try {
+      records2 = await markdownRecords(directory);
+    } catch (e) {
+      error62("invalid-frontmatter", String(e), directory);
+      continue;
+    }
+    for (const record2 of records2) {
+      if (path16.basename(record2.file) === "INDEX.md") continue;
+      if (name === "features" && path16.basename(record2.file) !== p.featureFile) continue;
+      if (isForwarder(record2.data)) {
+        error62("legacy-forwarder", "Compact records use ID aliases instead of forwarding files", record2.file);
+        continue;
+      }
+      if (name === "work" && record2.data.order !== void 0 && (!Number.isSafeInteger(record2.data.order) || Number(record2.data.order) < 1)) error62("invalid-work-order", "Work order must be a positive safe integer", record2.file);
+      try {
+        record2.data = schema.parse(record2.data);
+      } catch (e) {
+        error62("invalid-frontmatter", String(e), record2.file);
+        continue;
+      }
+      const identity2 = record2.data.id ?? (name === "features" ? record2.data.name : void 0);
+      for (const id of [identity2, ...Array.isArray(record2.data.aliases) ? record2.data.aliases : []]) {
+        if (typeof id !== "string" || !id) {
+          error62("invalid-id", "ID and aliases must be nonempty strings", record2.file);
+          continue;
+        }
+        if (ids.has(id)) error62("duplicate-id", `Duplicate ID or alias ${id}: ${ids.get(id)}`, record2.file);
+        else ids.set(id, record2.file);
+      }
+      collections2[name].push(record2);
+    }
   }
-  const file2 = path12.join(operationDirectory(root), `${randomUUID3()}.json`);
-  await atomicWrite(file2, JSON.stringify(operation));
-  await applyOperation(root, file2, operation);
+  const features = new Set(collections2.features.map((r) => r.data.name));
+  const work = /* @__PURE__ */ new Map();
+  for (const r of collections2.work) for (const id of [r.data.id, ...r.data.aliases]) work.set(String(id), r);
+  const positions = /* @__PURE__ */ new Map();
+  const ref = async (value, file2) => {
+    if (typeof value !== "string" || /^(?:https?:|mailto:)/.test(value) || ids.has(value)) return;
+    const target = path16.resolve(root, value.split("#")[0]);
+    if (!await exists(target)) error62("broken-reference", `Reference does not exist: ${value}`, file2);
+  };
+  for (const records2 of Object.values(collections2)) for (const r of records2) {
+    for (const name of Array.isArray(r.data.features) ? r.data.features : r.data.feature ? [r.data.feature] : []) if (!features.has(name)) error62("unknown-feature", `Unknown feature ${String(name)}`, r.file);
+    for (const key of ["targets", "contracts", "requirements", "decisions"]) for (const value of Array.isArray(r.data[key]) ? r.data[key] : []) await ref(value, r.file);
+    if (typeof r.data.source === "string" && /^(?:\.{1,2}\/|doc\/|docs\/|repo\/|work\/|sources\/|tasks\/|\.local\/)/.test(r.data.source)) await ref(r.data.source, r.file);
+    if (r.data.depends_on && typeof r.data.depends_on === "object") {
+      for (const name of Object.keys(r.data.depends_on)) if (!features.has(name)) error62("unknown-feature", `Unknown dependency ${name}`, r.file);
+    }
+  }
+  const tasks2 = /* @__PURE__ */ new Map();
+  for (const directory of [path16.join(root, "tasks"), path16.join(root, ".local/archives")]) {
+    const { readdir: readdir16 } = await import("node:fs/promises");
+    if (!await exists(directory)) continue;
+    for (const entry of await readdir16(directory, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const file2 = path16.join(directory, entry.name, "TASK_STATE.md");
+      if (!await exists(file2)) continue;
+      const document = parseMarkdown(await readText(file2));
+      if (typeof document.data.task_id === "string") tasks2.set(document.data.task_id, { file: file2, ...document });
+    }
+  }
+  for (const r of collections2.work) {
+    const data = workItemSchema.parse(r.data);
+    if (data.order !== void 0) {
+      if (!["planned", "proposed"].includes(data.status)) error62("invalid-work-order", "Only queued work may have order", r.file);
+      if (positions.has(data.order)) error62("duplicate-queue-position", `Order ${data.order} also used by ${positions.get(data.order)}`, r.file);
+      positions.set(data.order, data.id);
+    }
+    for (const id of [...data.related, ...data.conflicts]) if (!work.has(id)) error62("unknown-work", `Unknown work ID ${id}`, r.file);
+    const merged = data.merged_into ?? data.merged_target;
+    if (data.status === "merged" && (typeof merged !== "string" || !work.has(merged) || work.get(merged) === r)) error62("invalid-merged-target", "Merged work must identify another canonical target", r.file);
+    for (const id of data.tasks) {
+      const task = tasks2.get(id);
+      if (!task && typeof r.data.prior_ledger_state === "string" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) warning("historical-task-reference", `Legacy milestone label ${id} is not a live task binding`, r.file);
+      else if (!task) error62("unknown-task", `Work references missing task ${id}`, r.file);
+      else if (Array.isArray(task.data.work_items) && !task.data.work_items.some((value) => work.get(String(value)) === r)) error62("work-task-link-mismatch", `Task ${id} does not link back to ${data.id}`, r.file);
+    }
+  }
+  for (const task of tasks2.values()) for (const id of Array.isArray(task.data.work_items) ? task.data.work_items : []) {
+    const item = work.get(String(id));
+    if (!item || !item.data.tasks.includes(String(task.data.task_id))) error62("work-task-link-mismatch", `Task links missing reciprocal work ${String(id)}`, task.file);
+  }
+  const topLevelDocs = (await markdownRecords(p.docs)).filter((r) => path16.dirname(r.file) === p.docs && path16.basename(r.file) !== "architecture.md");
+  for (const r of [...collections2.features, ...collections2.requirements, ...collections2.decisions, ...collections2.reports, ...collections2.work, ...topLevelDocs]) {
+    for (const match of r.body.matchAll(/\]\(([^\s)]+)\)/g)) {
+      const value = match[1];
+      if (/^(?:[a-z]+:|#|\/)/i.test(value)) continue;
+      const target = path16.resolve(path16.dirname(r.file), value.split("#")[0]);
+      if (!await exists(target)) error62("broken-link", `Markdown link does not exist: ${value}`, r.file);
+    }
+  }
+  try {
+    const state = JSON.parse(await readText(path16.join(root, ".local/state.json")));
+    if (typeof state.migrationMap === "string") {
+      const map2 = path16.resolve(root, state.migrationMap);
+      if (!within(path16.join(root, ".local/archives"), map2)) throw new Error("Migration evidence escapes archive storage");
+      JSON.parse(await readText(map2));
+      const archive = path16.dirname(map2), original = path16.join(archive, "original");
+      const manual = path16.join(archive, "original-manifest.json"), generated = path16.join(archive, "hashes.json");
+      const entries = await exists(manual) ? JSON.parse(await readText(manual)) : Object.entries(JSON.parse(await readText(generated))).map(([name, sha256]) => ({ path: name, sha256: String(sha256) }));
+      for (const entry of entries) {
+        const file2 = path16.resolve(original, entry.path);
+        if (!within(original, file2)) throw new Error("Snapshot path escapes original tree");
+        if (entry.symlink) {
+          if (await readlink3(file2) !== entry.symlink) error62("historical-evidence-changed", `Original symlink changed: ${entry.path}`, map2);
+        } else if (createHash4("sha256").update(await readFile5(file2)).digest("hex") !== entry.sha256) error62("historical-evidence-changed", `Original bytes changed: ${entry.path}`, map2);
+      }
+    }
+  } catch (e) {
+    error62("invalid-migration-evidence", String(e));
+  }
+  const sources = new Map(collections2.sources.map((r) => [String(r.data.id), { file: r.file, data: sourceSchema.parse(r.data) }]));
+  await validateRepositoryAttachment(root, sources, diagnostics);
+  try {
+    for (const message of await validateMemoryTasks(root)) error62("invalid-task-memory", message);
+  } catch (e) {
+    error62("invalid-task-memory", String(e));
+  }
+  if ((await pendingContextOperations(root)).length) error62("pending-context-operation", "Context operation requires repair-context");
+  if ((await pendingFilenameOperations(root)).length) error62("pending-filename-operation", "Filename operation requires repair-filenames");
+  for (const [target, expected] of await buildIndexes(root)) if (!await exists(target) || await readText(target) !== expected) error62("stale-index", `Generated index is stale: ${path16.relative(root, target)}`, target);
+  return diagnostics;
 }
-async function repairContextOperations(root) {
-  return withProjectLock(root, async () => {
-    const pending = await pendingContextOperations(root);
-    for (const file2 of pending) await applyOperation(root, file2, JSON.parse(await readText(file2)));
-    await rebuildIndexes(root);
-    return pending;
-  });
-}
-var init_transactions2 = __esm({
-  "src/backlog/transactions.ts"() {
+var init_compact = __esm({
+  "src/validation/compact.ts"() {
     "use strict";
     init_fs();
+    init_layout();
+    init_records();
+    init_frontmatter();
+    init_schemas3();
     init_indexing();
-    init_transactions();
-  }
-});
-
-// src/migration/transactions.ts
-import { randomUUID as randomUUID4 } from "node:crypto";
-import { lstat as lstat7, readdir as readdir8 } from "node:fs/promises";
-import path13 from "node:path";
-async function safeTarget3(root, relative) {
-  const target = path13.resolve(root, relative);
-  if (!target.endsWith(".md") || !collections.some((name) => {
-    const directory = path13.join(root, "doc", name);
-    return within(directory, target) && target !== directory;
-  })) throw new Error(`Filename operation target is outside approved record storage: ${relative}`);
-  let current = target;
-  while (current !== root && within(root, current)) {
-    try {
-      if ((await lstat7(current)).isSymbolicLink()) throw new Error(`Filename operation rejects symlink target: ${relative}`);
-    } catch (error62) {
-      if (error62.code !== "ENOENT") throw error62;
-    }
-    current = path13.dirname(current);
-  }
-  return target;
-}
-async function pendingFilenameOperations(root) {
-  const directory = operationDirectory2(root);
-  if (!await exists(directory)) return [];
-  const pending = [];
-  for (const name of (await readdir8(directory)).sort()) {
-    if (!name.endsWith(".json")) continue;
-    const file2 = path13.join(directory, name);
-    const operation = JSON.parse(await readText(file2));
-    if (operation.status !== "committed") pending.push(file2);
-  }
-  return pending;
-}
-async function assertNoPendingFilenameOperations(root) {
-  if ((await pendingFilenameOperations(root)).length) throw new Error("Filename operation needs repair-filenames before new changes");
-}
-async function applyOperation2(root, file2, operation) {
-  if (operation.version !== 1 || !Array.isArray(operation.writes) || !operation.writes.length) throw new Error("Invalid filename recovery journal");
-  const targets = /* @__PURE__ */ new Set();
-  for (const write of operation.writes) {
-    if (typeof write.path !== "string" || typeof write.after !== "string" || write.before !== null && typeof write.before !== "string") throw new Error("Invalid filename recovery write");
-    const target = await safeTarget3(root, write.path);
-    if (targets.has(target)) throw new Error(`Duplicate filename recovery path: ${write.path}`);
-    targets.add(target);
-    const current = await exists(target) ? await readText(target) : null;
-    if (current !== write.before && current !== write.after) throw new Error(`Recovery refuses changed record: ${write.path}`);
-  }
-  for (const write of operation.writes) await atomicWrite(await safeTarget3(root, write.path), write.after);
-  await atomicWrite(file2, JSON.stringify({ ...operation, status: "committed" }));
-}
-async function writeFilenameOperation(root, writes) {
-  await assertNoPendingFilenameOperations(root);
-  const operation = { version: 1, status: "pending", writes: [] };
-  for (const [target, after] of writes) {
-    const safe = await safeTarget3(root, path13.relative(root, target));
-    operation.writes.push({ path: path13.relative(root, safe), before: await exists(safe) ? await readText(safe) : null, after });
-  }
-  if (!operation.writes.length) return;
-  const file2 = path13.join(operationDirectory2(root), `${randomUUID4()}.json`);
-  await atomicWrite(file2, JSON.stringify(operation));
-  await applyOperation2(root, file2, operation);
-}
-async function repairFilenameOperations(root) {
-  return withProjectLock(root, async () => {
-    const pending = await pendingFilenameOperations(root);
-    for (const file2 of pending) await applyOperation2(root, file2, JSON.parse(await readText(file2)));
-    await rebuildIndexes(root);
-    return pending;
-  });
-}
-var collections, operationDirectory2;
-var init_transactions3 = __esm({
-  "src/migration/transactions.ts"() {
-    "use strict";
-    init_fs();
-    init_indexing();
-    init_transactions();
-    collections = ["requirements", "decisions", "reports", "sources"];
-    operationDirectory2 = (root) => path13.join(root, ".local", "filename-operations");
+    init_memory();
+    init_transactions2();
+    init_transactions3();
+    init_validation();
   }
 });
 
 // src/validation/index.ts
-import { lstat as lstat8, readdir as readdir9, readlink as readlink2, realpath as realpath4 } from "node:fs/promises";
-import path14 from "node:path";
-async function files(directory, basename) {
+import { lstat as lstat10, readdir as readdir10, readlink as readlink4, realpath as realpath6 } from "node:fs/promises";
+import path17 from "node:path";
+async function files2(directory, basename) {
   if (!await exists(directory)) return [];
   const output3 = [];
-  for (const entry of await readdir9(directory, { withFileTypes: true })) {
-    const target = path14.join(directory, entry.name);
-    if (entry.isDirectory()) output3.push(...await files(target, basename));
+  for (const entry of await readdir10(directory, { withFileTypes: true })) {
+    const target = path17.join(directory, entry.name);
+    if (entry.isDirectory()) output3.push(...await files2(target, basename));
     else if (entry.isFile() && entry.name.endsWith(".md") && (!basename || entry.name === basename)) output3.push(target);
   }
   return output3.sort();
@@ -32877,7 +33590,7 @@ function localReference(value) {
   return value.split("#", 1)[0];
 }
 async function checkReference(projectRoot, reference, sourceFile, diagnostics) {
-  const target = path14.resolve(projectRoot, localReference(reference));
+  const target = path17.resolve(projectRoot, localReference(reference));
   if (!within(projectRoot, target)) {
     diagnostics.push({ level: "error", code: "escaping-reference", message: `Reference escapes project root: ${reference}`, path: sourceFile });
   } else if (!await exists(target)) {
@@ -32885,19 +33598,20 @@ async function checkReference(projectRoot, reference, sourceFile, diagnostics) {
   }
 }
 async function validateProject(projectRoot) {
+  if (layoutPaths(projectRoot).compact) return validateCompactProject(projectRoot);
   const diagnostics = [];
   for (const required2 of ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md", "doc/ARCHITECTURE.md"]) {
-    if (!await exists(path14.join(projectRoot, required2))) diagnostics.push({ level: "error", code: "missing-required", message: `Missing required file: ${required2}`, path: required2 });
+    if (!await exists(path17.join(projectRoot, required2))) diagnostics.push({ level: "error", code: "missing-required", message: `Missing required file: ${required2}`, path: required2 });
   }
   if (!await exists(await machineStatePath(projectRoot))) diagnostics.push({ level: "error", code: "missing-required", message: "Missing machine project state", path: projectRoot });
-  const featureFiles = await files(path14.join(projectRoot, "doc/features"), "FEATURE.md");
-  const requirementFiles = await files(path14.join(projectRoot, "doc/requirements"));
-  const shelfFiles = await files(path14.join(projectRoot, "doc/shelf"));
-  const backlogFiles = await files(path14.join(projectRoot, "doc/backlog"));
-  const activeFiles = await files(path14.join(projectRoot, "doc/active"));
-  const sourceFiles = await files(path14.join(projectRoot, "doc/sources"));
-  const decisionFiles = await files(path14.join(projectRoot, "doc/decisions"));
-  const reportFiles = await files(path14.join(projectRoot, "doc/reports"));
+  const featureFiles = await files2(path17.join(projectRoot, "doc/features"), "FEATURE.md");
+  const requirementFiles = await files2(path17.join(projectRoot, "doc/requirements"));
+  const shelfFiles = await files2(path17.join(projectRoot, "doc/shelf"));
+  const backlogFiles = await files2(path17.join(projectRoot, "doc/backlog"));
+  const activeFiles = await files2(path17.join(projectRoot, "doc/active"));
+  const sourceFiles = await files2(path17.join(projectRoot, "doc/sources"));
+  const decisionFiles = await files2(path17.join(projectRoot, "doc/decisions"));
+  const reportFiles = await files2(path17.join(projectRoot, "doc/reports"));
   await validateForwarders(projectRoot, [...requirementFiles, ...backlogFiles, ...activeFiles, ...sourceFiles, ...decisionFiles, ...reportFiles], diagnostics);
   const features = /* @__PURE__ */ new Map();
   const requirements = /* @__PURE__ */ new Map();
@@ -32957,7 +33671,7 @@ async function validateProject(projectRoot) {
   for (const item of backlog.values()) {
     const activation = item.data.activation;
     if (typeof activation === "string") {
-      const target = path14.resolve(projectRoot, activation);
+      const target = path17.resolve(projectRoot, activation);
       if (!await exists(target)) diagnostics.push({ level: "error", code: "broken-activation", message: `Backlog activation is missing: ${activation}`, path: item.file });
     }
   }
@@ -32999,7 +33713,7 @@ async function validateProject(projectRoot) {
     diagnostics.push({ level: "error", code: "invalid-task-memory", message: error62 instanceof Error ? error62.message : String(error62) });
   }
   for (const [target, expected] of await buildIndexes(projectRoot)) {
-    if (!await exists(target) || await readText(target) !== expected) diagnostics.push({ level: "error", code: "stale-index", message: `Generated index is stale: ${path14.relative(projectRoot, target)}`, path: target });
+    if (!await exists(target) || await readText(target) !== expected) diagnostics.push({ level: "error", code: "stale-index", message: `Generated index is stale: ${path17.relative(projectRoot, target)}`, path: target });
   }
   return diagnostics;
 }
@@ -33036,13 +33750,13 @@ async function validateForwarders(projectRoot, candidates, diagnostics) {
       diagnostics.push({ level: "error", code: "invalid-forwarder", message: "Forwarder requires redirect_to and redirect_id strings and must not declare a canonical id", path: file2 });
       continue;
     }
-    const target = path14.resolve(projectRoot, reference);
-    if (target === file2 || path14.dirname(target) !== path14.dirname(file2) || !within(projectRoot, target)) {
+    const target = path17.resolve(projectRoot, reference);
+    if (target === file2 || path17.dirname(target) !== path17.dirname(file2) || !within(projectRoot, target)) {
       diagnostics.push({ level: "error", code: "invalid-forwarder", message: `Forwarder leaves its record collection: ${reference}`, path: file2 });
       continue;
     }
     try {
-      if (!(await lstat8(target)).isFile()) throw new Error("target is not a regular file");
+      if (!(await lstat10(target)).isFile()) throw new Error("target is not a regular file");
       const canonical = parseMarkdown(await readText(target)).data;
       if (isForwarder(canonical)) throw new Error("target is another forwarder");
       if (canonical.id !== identity2) throw new Error(`target ID differs from ${identity2}`);
@@ -33060,18 +33774,18 @@ async function validateRepositoryAttachment(projectRoot, sources, diagnostics) {
     diagnostics.push({ level: "error", code: "invalid-state", message: error62 instanceof Error ? error62.message : String(error62), path: statePath2 });
     return;
   }
-  if (path14.resolve(state.projectRoot) !== path14.resolve(projectRoot)) {
+  if (path17.resolve(state.projectRoot) !== path17.resolve(projectRoot)) {
     diagnostics.push({ level: "error", code: "state-project-root-mismatch", message: "State projectRoot does not match this project.", path: statePath2 });
   }
-  const link = path14.join(projectRoot, "repo");
+  const link = path17.join(projectRoot, "repo");
   let linkedRepository;
   try {
-    const info = await lstat8(link);
+    const info = await lstat10(link);
     if (!info.isSymbolicLink()) {
       diagnostics.push({ level: "error", code: "repository-link-invalid", message: "repo must be a symbolic link.", path: link });
       return;
     }
-    linkedRepository = await realpath4(path14.resolve(path14.dirname(link), await readlink2(link)));
+    linkedRepository = await realpath6(path17.resolve(path17.dirname(link), await readlink4(link)));
   } catch (error62) {
     if (error62.code !== "ENOENT") diagnostics.push({ level: "error", code: "repository-link-invalid", message: error62 instanceof Error ? error62.message : String(error62), path: link });
   }
@@ -33081,16 +33795,16 @@ async function validateRepositoryAttachment(projectRoot, sources, diagnostics) {
   }
   let stateRepository;
   try {
-    stateRepository = await realpath4(state.repositoryPath);
+    stateRepository = await realpath6(state.repositoryPath);
   } catch (error62) {
     diagnostics.push({ level: "error", code: "repository-state-invalid", message: error62 instanceof Error ? error62.message : String(error62), path: statePath2 });
     return;
   }
-  if (!linkedRepository) {
+  if (!linkedRepository && !layoutPaths(projectRoot).compact) {
     diagnostics.push({ level: "error", code: "repository-link-mismatch", message: "State has repositoryPath but repo link is missing.", path: link });
     return;
   }
-  if (linkedRepository !== stateRepository) {
+  if (linkedRepository && linkedRepository !== stateRepository) {
     diagnostics.push({ level: "error", code: "repository-link-mismatch", message: "repo link does not match state.repositoryPath.", path: link });
     return;
   }
@@ -33124,6 +33838,8 @@ async function validateRepositoryAttachment(projectRoot, sources, diagnostics) {
 var init_validation = __esm({
   "src/validation/index.ts"() {
     "use strict";
+    init_layout();
+    init_compact();
     init_indexing();
     init_fs();
     init_records();
@@ -33139,53 +33855,52 @@ var init_validation = __esm({
 
 // src/projects/index.ts
 import { randomUUID as randomUUID5 } from "node:crypto";
-import { cp, lstat as lstat9, readlink as readlink3, realpath as realpath5, readdir as readdir10, rename as rename2, rm as rm3, rmdir, symlink } from "node:fs/promises";
-import path15 from "node:path";
+import { cp, lstat as lstat11, readlink as readlink5, realpath as realpath7, readdir as readdir11, rename as rename2, rm as rm5, rmdir, symlink } from "node:fs/promises";
+import path18 from "node:path";
 function normalizeName(value) {
   const normalized = value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   if (!normalized) throw new Error("Project name must contain letters or numbers");
   return normalized;
 }
 async function machineStatePath(projectRoot) {
-  const current = path15.join(projectRoot, ".local", "state.json");
+  const current = path18.join(projectRoot, ".local", "state.json");
   if (await exists(current)) return current;
-  const legacy = path15.join(projectRoot, ".deep-context", "state.json");
+  const legacy = path18.join(projectRoot, ".deep-context", "state.json");
   return await exists(legacy) ? legacy : current;
 }
 async function initProject(home, options) {
   const name = normalizeName(options.name);
-  const requestedContext = path15.resolve(options.contextPath ?? (options.repository ? path15.join(await primaryCheckout(options.repository), ".deep-context") : path15.join(home, name)));
-  let projectRoot = await realpath5(requestedContext).catch(() => requestedContext);
+  const requestedContext = path18.resolve(options.contextPath ?? (options.repository ? path18.join(await primaryCheckout(options.repository), ".deep-context") : path18.join(home, name)));
+  let projectRoot = await realpath7(requestedContext).catch(() => requestedContext);
   await assertNoPendingFilenameOperations(projectRoot);
-  if (options.repository && projectRoot === await realpath5(options.repository)) throw new Error("Context storage must not be the source repository root");
+  if (options.repository && projectRoot === await realpath7(options.repository)) throw new Error("Context storage must not be the source repository root");
   let statePath2 = await machineStatePath(projectRoot);
   const previous = await exists(statePath2) ? JSON.parse(await readText(statePath2)) : void 0;
   if (await exists(statePath2)) {
-    const previousRoot = previous?.projectRoot ? await realpath5(previous.projectRoot).catch(() => path15.resolve(previous.projectRoot)) : void 0;
-    const requestedRoot = await realpath5(projectRoot).catch(() => path15.resolve(projectRoot));
+    const previousRoot = previous?.projectRoot ? await realpath7(previous.projectRoot).catch(() => path18.resolve(previous.projectRoot)) : void 0;
+    const requestedRoot = await realpath7(projectRoot).catch(() => path18.resolve(projectRoot));
     if (previous?.name !== name || previousRoot !== requestedRoot) throw new Error(`Conflicting project identity at ${projectRoot}`);
   }
-  for (const directory of ["doc/features", "doc/requirements", "doc/backlog", "doc/active", "doc/decisions", "doc/sources", "doc/reports", "tasks", ".local"]) {
-    await ensureDir(path15.join(projectRoot, directory));
-  }
-  projectRoot = await realpath5(projectRoot);
+  const layout = layoutPaths(projectRoot);
+  for (const directory of [layout.features, layout.requirements, layout.backlog, layout.active, layout.decisions, layout.sources, layout.reports, path18.join(projectRoot, "tasks"), path18.join(projectRoot, ".local")]) await ensureDir(directory);
+  projectRoot = await realpath7(projectRoot);
   statePath2 = await machineStatePath(projectRoot);
-  const requestedRepository = options.repository ? await realpath5(options.repository) : void 0;
+  const requestedRepository = options.repository ? await realpath7(options.repository) : void 0;
   const repositoryPath = requestedRepository ?? previous?.repositoryPath;
   let imported;
-  const link = path15.join(projectRoot, "repo");
+  const link = path18.join(projectRoot, "repo");
   const linkedRepository = await repositoryLink(link);
   if (repositoryPath) {
-    const resolvedRepository = await realpath5(repositoryPath);
+    const resolvedRepository = await realpath7(repositoryPath);
     if (linkedRepository && linkedRepository !== resolvedRepository) throw new Error(`Conflicting repository attachment at ${projectRoot}`);
-    if (previous?.repositoryPath && await realpath5(previous.repositoryPath) !== resolvedRepository) throw new Error(`Conflicting repository attachment at ${projectRoot}`);
-    if (!linkedRepository) await symlink(resolvedRepository, link);
-    if (options.installRouting !== false) await updateAgentsBlock(path15.join(resolvedRepository, "AGENTS.md"), projectRoot);
+    if (previous?.repositoryPath && await realpath7(previous.repositoryPath) !== resolvedRepository) throw new Error(`Conflicting repository attachment at ${projectRoot}`);
+    if (!linkedRepository && !layout.compact) await symlink(resolvedRepository, link);
+    if (options.installRouting !== false) await updateAgentsBlock(path18.join(resolvedRepository, "AGENTS.md"), projectRoot);
     if (isContained(projectRoot, resolvedRepository)) await ignorePrivateContext(resolvedRepository);
     const inventory = await inventoryRepository(resolvedRepository, { excludedRoots: [projectRoot] });
     imported = { head: inventory.head, branch: inventory.branch, dirty: inventory.dirty, capturedAt: (/* @__PURE__ */ new Date()).toISOString() };
     const sourceFiles = /* @__PURE__ */ new Map();
-    for (const file2 of await markdownRecords(path15.join(projectRoot, "doc", "sources"))) {
+    for (const file2 of await markdownRecords(layoutPaths(projectRoot).sources)) {
       if (isForwarder(file2.data) || typeof file2.data.id !== "string") continue;
       if (sourceFiles.has(file2.data.id)) throw new Error(`Duplicate source record ID ${file2.data.id}`);
       sourceFiles.set(file2.data.id, file2.file);
@@ -33195,14 +33910,14 @@ async function initProject(home, options) {
   } else if (linkedRepository) {
     throw new Error(`Repository link exists without a repository identity at ${projectRoot}`);
   }
-  await createExclusive(path15.join(projectRoot, "AGENTS.md"), projectAgents(name));
-  await updateTaskRouting(path15.join(projectRoot, "AGENTS.md"));
-  await createExclusive(path15.join(projectRoot, "CONTEXT_MAP.md"), contextMap(name));
-  const projectId = await ensureCanonicalProjectId(path15.join(projectRoot, "PROJECT.md"), name, repositoryPath, previous?.projectId ?? randomUUID5());
-  await createExclusive(path15.join(projectRoot, "doc", "ARCHITECTURE.md"), architectureTemplate);
+  await createExclusive(path18.join(projectRoot, "AGENTS.md"), projectAgents(name));
+  await updateTaskRouting(path18.join(projectRoot, "AGENTS.md"));
+  await createExclusive(path18.join(projectRoot, "CONTEXT_MAP.md"), contextMap(name));
+  const projectId = await ensureCanonicalProjectId(path18.join(projectRoot, "PROJECT.md"), name, repositoryPath, previous?.projectId ?? randomUUID5());
+  await createExclusive(layout.architecture, architectureTemplate);
   await removeLegacyAgent(projectRoot);
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const state = { schemaVersion: 1, name, projectRoot, repositoryPath, projectId, createdAt: previous?.createdAt ?? now, updatedAt: now, import: imported ?? previous?.import };
+  const state = { ...previous, ...layout.compact ? { layout: "compact-v1", legacyCliCompatible: false } : {}, schemaVersion: 1, name, projectRoot, repositoryPath, repositoryCommonDir: repositoryPath ? await commonGitDirectory(repositoryPath) : void 0, projectId, createdAt: previous?.createdAt ?? now, updatedAt: now, import: imported ?? previous?.import };
   await atomicWrite(statePath2, `${JSON.stringify(state, null, 2)}
 `);
   await rebuildIndexes(projectRoot);
@@ -33210,16 +33925,16 @@ async function initProject(home, options) {
   return projectRoot;
 }
 async function migrateProject(oldPath, repository) {
-  const oldRoot = await realpath5(oldPath);
+  const oldRoot = await realpath7(oldPath);
   const source = await primaryCheckout(repository);
-  const destination = path15.join(source, ".deep-context");
+  const destination = path18.join(source, ".deep-context");
   if (oldRoot === destination) throw new Error("Project already uses in-repository storage");
   if (await exists(destination)) throw new Error(`Conflicting migration destination: ${destination}`);
   await preflightMigration(oldRoot, source);
   const oldState = JSON.parse(await readText(await machineStatePath(oldRoot)));
-  if (await realpath5(oldState.repositoryPath ?? "") !== source) throw new Error("Migration source repository does not match project identity");
-  const sourceAgentsPath = path15.join(source, "AGENTS.md");
-  const sourceIgnorePath = path15.join(source, ".gitignore");
+  if (await realpath7(oldState.repositoryPath ?? "") !== source) throw new Error("Migration source repository does not match project identity");
+  const sourceAgentsPath = path18.join(source, "AGENTS.md");
+  const sourceIgnorePath = path18.join(source, ".gitignore");
   const originalAgents = await exists(sourceAgentsPath) ? await readText(sourceAgentsPath) : null;
   const originalIgnore = await exists(sourceIgnorePath) ? await readText(sourceIgnorePath) : null;
   let routedAgents;
@@ -33227,32 +33942,35 @@ async function migrateProject(oldPath, repository) {
   let backup;
   await cp(oldRoot, destination, { recursive: true, force: false, errorOnExist: true });
   try {
-    const oldMachine = path15.join(destination, ".deep-context");
-    if (await exists(oldMachine)) await rename2(oldMachine, path15.join(destination, ".local"));
-    const statePath2 = path15.join(destination, ".local", "state.json");
+    const oldMachine = path18.join(destination, ".deep-context");
+    if (await exists(oldMachine)) await rename2(oldMachine, path18.join(destination, ".local"));
+    const statePath2 = path18.join(destination, ".local", "state.json");
     await atomicWrite(statePath2, `${JSON.stringify({ ...oldState, projectRoot: destination, repositoryPath: source }, null, 2)}
 `);
-    await migrateShelf(destination);
-    await migrateClosureArchives(destination);
-    await rewriteMovedReferences(destination);
-    await removeLegacyAgent(destination);
-    const agentsPath = path15.join(destination, "AGENTS.md");
-    const oldAgents = await readText(agentsPath);
-    await atomicWrite(agentsPath, oldAgents.replaceAll("deep-start or deep-resume", "deep-task").replaceAll("Shelf", "Backlog") + "\n\n## Automatic context care\n\nResolve known chat bindings on startup. Read BACKLOG.md and ACTIVE.md at planning and scope changes. Save useful decisions, discoveries, blockers, evidence and future ideas as they arise. Refresh indexes and validate affected context. An unbound chat stays at project scope.\n");
-    const mapPath = path15.join(destination, "CONTEXT_MAP.md");
-    const oldMap = await readText(mapPath);
-    let nextMap = oldMap.replaceAll("doc/shelf", "doc/backlog").replaceAll("SHELF.md", "BACKLOG.md").replaceAll("Shelf", "Backlog").replaceAll(".deep-context/state.json", ".local/state.json").replaceAll(".deep-context/chat-index.json", ".local/chat-index.json");
-    nextMap = nextMap.replace(/(^\| `doc\/backlog\/\*\.md`[^\n]*\n)/m, "$1| `doc/active/*.md` | Accepted objectives and executing tasks | Canonical |\n");
-    nextMap = nextMap.replace("`BACKLOG.md`,", "`BACKLOG.md`, `ACTIVE.md`,");
-    nextMap = nextMap.replace(/^\| `doc\/reports\/closures\/\*`[^\n]*$/m, "| `doc/reports/closures/*.md` | Concise durable closure conclusions | Canonical |\n| `.local/archives/*` | Raw closed task and chat memory | Local archive |");
-    await atomicWrite(mapPath, nextMap + "\n\n## In-repository storage\n\n`tasks/` and `.local/` are local-only. All Git worktrees resolve this primary checkout's context. Raw closed memory is retained in `.local/archives/`; concise closure conclusions belong in `doc/reports/closures/*.md`. Unfinished Backlog writes are journaled under `.local/context-operations/` and require repair-context.\n");
-    await initProject(path15.dirname(destination), { name: oldState.name, repository: source, contextPath: destination, installRouting: false });
+    if (!layoutPaths(destination).compact) {
+      await migrateShelf(destination);
+      await migrateClosureArchives(destination);
+      await rewriteMovedReferences(destination);
+      await removeLegacyAgent(destination);
+      const agentsPath = path18.join(destination, "AGENTS.md");
+      const oldAgents = await readText(agentsPath);
+      await atomicWrite(agentsPath, oldAgents.replaceAll("deep-start or deep-resume", "deep-task").replaceAll("Shelf", "Backlog") + "\n\n## Automatic context care\n\nResolve known chat bindings on startup. Read BACKLOG.md and ACTIVE.md at planning and scope changes. Save useful decisions, discoveries, blockers, evidence and future ideas as they arise. Refresh indexes and validate affected context. An unbound chat stays at project scope.\n");
+      const mapPath = path18.join(destination, "CONTEXT_MAP.md");
+      const oldMap = await readText(mapPath);
+      let nextMap = oldMap.replaceAll("doc/shelf", "doc/backlog").replaceAll("SHELF.md", "BACKLOG.md").replaceAll("Shelf", "Backlog").replaceAll(".deep-context/state.json", ".local/state.json").replaceAll(".deep-context/chat-index.json", ".local/chat-index.json");
+      nextMap = nextMap.replace(/(^\| `doc\/backlog\/\*\.md`[^\n]*\n)/m, "$1| `doc/active/*.md` | Accepted objectives and executing tasks | Canonical |\n");
+      nextMap = nextMap.replace("`BACKLOG.md`,", "`BACKLOG.md`, `ACTIVE.md`,");
+      nextMap = nextMap.replace(/^\| `doc\/reports\/closures\/\*`[^\n]*$/m, "| `doc/reports/closures/*.md` | Concise durable closure conclusions | Canonical |\n| `.local/archives/*` | Raw closed task and chat memory | Local archive |");
+      await atomicWrite(mapPath, nextMap + "\n\n## In-repository storage\n\n`tasks/` and `.local/` are local-only. All Git worktrees resolve this primary checkout's context. Raw closed memory is retained in `.local/archives/`; concise closure conclusions belong in `doc/reports/closures/*.md`. Unfinished Backlog writes are journaled under `.local/context-operations/` and require repair-context.\n");
+      await migrateLayout(destination, { apply: true });
+    }
+    await initProject(path18.dirname(destination), { name: oldState.name, repository: source, contextPath: destination, installRouting: false });
     updatedIgnore = await readText(sourceIgnorePath);
     await requireValidMigration(destination);
     await preflightMigration(oldRoot, source);
     await updateAgentsBlock(sourceAgentsPath, destination);
     routedAgents = await readText(sourceAgentsPath);
-    await initProject(path15.dirname(destination), { name: oldState.name, repository: source, contextPath: destination, installRouting: false });
+    await initProject(path18.dirname(destination), { name: oldState.name, repository: source, contextPath: destination, installRouting: false });
     await requireValidMigration(destination);
     backup = `${oldRoot}.backup-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}`;
     if (await exists(backup)) throw new Error(`Migration backup already exists: ${backup}`);
@@ -33263,35 +33981,35 @@ async function migrateProject(oldPath, repository) {
     return { projectRoot: destination, backup };
   } catch (error62) {
     if (backup && await exists(backup)) {
-      const oldInfo = await lstat9(oldRoot).catch((failure2) => {
+      const oldInfo = await lstat11(oldRoot).catch((failure2) => {
         if (failure2.code === "ENOENT") return void 0;
         throw failure2;
       });
-      if (oldInfo?.isSymbolicLink() && await readlink3(oldRoot) === destination) await rm3(oldRoot);
+      if (oldInfo?.isSymbolicLink() && await readlink5(oldRoot) === destination) await rm5(oldRoot);
       if (!await exists(oldRoot)) await rename2(backup, oldRoot);
     }
     if (routedAgents && await exists(sourceAgentsPath) && await readText(sourceAgentsPath) === routedAgents) {
-      if (originalAgents === null) await rm3(sourceAgentsPath);
+      if (originalAgents === null) await rm5(sourceAgentsPath);
       else await atomicWrite(sourceAgentsPath, originalAgents);
     }
     if (updatedIgnore && await exists(sourceIgnorePath) && await readText(sourceIgnorePath) === updatedIgnore) {
-      if (originalIgnore === null) await rm3(sourceIgnorePath);
+      if (originalIgnore === null) await rm5(sourceIgnorePath);
       else await atomicWrite(sourceIgnorePath, originalIgnore);
     }
-    if (await exists(oldRoot) && !(await lstat9(oldRoot)).isSymbolicLink()) await rm3(destination, { recursive: true, force: true });
+    if (await exists(oldRoot) && !(await lstat11(oldRoot)).isSymbolicLink()) await rm5(destination, { recursive: true, force: true });
     throw error62;
   }
 }
 async function removeLegacyAgent(root) {
-  const legacyAgent = path15.join(root, "agents", "PROJECT_CONTEXT_AGENT.md");
+  const legacyAgent = path18.join(root, "agents", "PROJECT_CONTEXT_AGENT.md");
   if (await exists(legacyAgent) && await readText(legacyAgent) === projectContextAgent) {
-    await rm3(legacyAgent);
-    if ((await readdir10(path15.dirname(legacyAgent))).length === 0) await rmdir(path15.dirname(legacyAgent));
+    await rm5(legacyAgent);
+    if ((await readdir11(path18.dirname(legacyAgent))).length === 0) await rmdir(path18.dirname(legacyAgent));
   }
 }
 async function preflightMigration(oldRoot, repository) {
-  for (const location of [path15.join(oldRoot, "tasks"), path15.join(oldRoot, ".deep-context", "locks"), path15.join(oldRoot, ".local", "locks")]) {
-    if (await exists(location) && (await readdir10(location)).length) throw new Error(`Migration refuses active tasks or locks at ${location}`);
+  for (const location of [path18.join(oldRoot, "tasks"), path18.join(oldRoot, ".deep-context", "locks"), path18.join(oldRoot, ".local", "locks")]) {
+    if (await exists(location) && (await readdir11(location)).length) throw new Error(`Migration refuses active tasks or locks at ${location}`);
   }
   const listed = await git(repository, ["worktree", "list", "--porcelain"]);
   if ((listed.match(/^worktree /gm) ?? []).length > 1) throw new Error("Migration requires review of existing Git worktrees");
@@ -33301,17 +34019,17 @@ async function requireValidMigration(root) {
   if (errors.length) throw new Error(`Migrated project did not validate: ${errors.slice(0, 5).map((item) => `${item.code}: ${item.message}`).join("; ")}`);
 }
 async function migrateShelf(root) {
-  const oldDirectory = path15.join(root, "doc", "shelf");
+  const oldDirectory = path18.join(root, "doc", "shelf");
   if (!await exists(oldDirectory)) return;
-  const backlog = path15.join(root, "doc", "backlog");
+  const backlog = path18.join(root, "doc", "backlog");
   if (await exists(backlog)) {
-    if ((await readdir10(backlog)).length) throw new Error("Backlog destination conflicts with legacy Shelf");
+    if ((await readdir11(backlog)).length) throw new Error("Backlog destination conflicts with legacy Shelf");
     await rmdir(backlog);
   }
   await rename2(oldDirectory, backlog);
-  for (const entry of await readdir10(backlog)) {
+  for (const entry of await readdir11(backlog)) {
     if (!entry.endsWith(".md")) continue;
-    const target = path15.join(backlog, entry);
+    const target = path18.join(backlog, entry);
     const document = parseMarkdown(await readText(target));
     const data = document.data;
     const oldStatus = String(data.status ?? "shelved");
@@ -33328,22 +34046,22 @@ ${(0, import_yaml2.stringify)(data).trimEnd()}
 ---
 ${document.body.replaceAll("Shelf", "Backlog")}`);
   }
-  await rm3(path15.join(root, "doc", "SHELF.md"), { force: true });
+  await rm5(path18.join(root, "doc", "SHELF.md"), { force: true });
 }
 async function migrateClosureArchives(root) {
-  const oldDirectory = path15.join(root, "doc", "reports", "closures");
+  const oldDirectory = path18.join(root, "doc", "reports", "closures");
   if (!await exists(oldDirectory)) return;
-  const archiveDirectory = path15.join(root, ".local", "archives");
+  const archiveDirectory = path18.join(root, ".local", "archives");
   await ensureDir(archiveDirectory);
-  for (const entry of await readdir10(oldDirectory, { withFileTypes: true })) {
+  for (const entry of await readdir11(oldDirectory, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
-    const oldArchive = path15.join(oldDirectory, entry.name);
-    if (!await exists(path15.join(oldArchive, "TASK_STATE.md"))) continue;
-    const newArchive = path15.join(archiveDirectory, entry.name);
+    const oldArchive = path18.join(oldDirectory, entry.name);
+    if (!await exists(path18.join(oldArchive, "TASK_STATE.md"))) continue;
+    const newArchive = path18.join(archiveDirectory, entry.name);
     if (await exists(newArchive)) throw new Error(`Conflicting local closure archive: ${newArchive}`);
-    const report = path15.join(oldArchive, "REPORT.md");
+    const report = path18.join(oldArchive, "REPORT.md");
     if (await exists(report)) {
-      const durable = path15.join(oldDirectory, `${entry.name}.md`);
+      const durable = path18.join(oldDirectory, `${entry.name}.md`);
       if (await exists(durable)) throw new Error(`Conflicting durable closure report: ${durable}`);
       await cp(report, durable, { force: false, errorOnExist: true });
     }
@@ -33352,11 +34070,11 @@ async function migrateClosureArchives(root) {
 }
 async function rewriteMovedReferences(root) {
   for (const folder of ["doc", "docs/plan"]) {
-    const directory = path15.join(root, folder);
+    const directory = path18.join(root, folder);
     if (!await exists(directory)) continue;
     async function visit2(current) {
-      for (const entry of await readdir10(current, { withFileTypes: true })) {
-        const target = path15.join(current, entry.name);
+      for (const entry of await readdir11(current, { withFileTypes: true })) {
+        const target = path18.join(current, entry.name);
         if (entry.isDirectory()) await visit2(target);
         else if (entry.isFile() && entry.name.endsWith(".md")) {
           const original = await readText(target);
@@ -33379,18 +34097,19 @@ async function registerProject(projectRoot) {
 `);
 }
 async function resolveExplicitProject(candidate) {
-  const resolved = await realpath5(candidate).catch(() => path15.resolve(candidate));
+  const resolved = await realpath7(candidate).catch(() => path18.resolve(candidate));
   const statePath2 = await machineStatePath(resolved);
   if (!await exists(statePath2)) throw new Error(`No Deep Context project at ${candidate}`);
   const state = JSON.parse(await readText(statePath2));
-  const stateRoot = await realpath5(state.projectRoot).catch(() => path15.resolve(state.projectRoot));
+  const stateRoot = await realpath7(state.projectRoot).catch(() => path18.resolve(state.projectRoot));
   if (state.schemaVersion !== 1 || !state.name || stateRoot !== resolved) throw new Error(`Invalid Deep Context project at ${candidate}`);
-  const canonicalId = parseMarkdown(await readText(path15.join(resolved, "PROJECT.md"))).data.project_id;
+  const canonicalId = parseMarkdown(await readText(path18.join(resolved, "PROJECT.md"))).data.project_id;
   if (state.projectId !== canonicalId) throw new Error(`Conflicting canonical project identity at ${candidate}`);
-  const linked = await repositoryLink(path15.join(resolved, "repo"));
+  const linked = await repositoryLink(path18.join(resolved, "repo"));
   if (state.repositoryPath) {
-    const repository = await realpath5(state.repositoryPath);
-    if (linked !== repository) throw new Error(`Invalid repository attachment at ${candidate}`);
+    const repository = await realpath7(state.repositoryPath);
+    if (state.repositoryCommonDir && await commonGitDirectory(repository) !== state.repositoryCommonDir) throw new Error("Source repository identity changed");
+    if (!layoutPaths(resolved).compact && linked !== repository || linked && linked !== repository) throw new Error(`Invalid repository attachment at ${candidate}`);
   } else if (linked) {
     throw new Error(`Invalid repository attachment at ${candidate}`);
   }
@@ -33411,10 +34130,10 @@ ${document.body}`);
   return fallbackId;
 }
 function isContained(candidate, root) {
-  return candidate.startsWith(`${root}${path15.sep}`);
+  return candidate.startsWith(`${root}${path18.sep}`);
 }
 async function ignorePrivateContext(repository) {
-  const target = path15.join(repository, ".gitignore");
+  const target = path18.join(repository, ".gitignore");
   const original = await exists(target) ? await readText(target) : "";
   const marker = "# Deep Context private state";
   if (original.includes(marker)) return;
@@ -33426,7 +34145,8 @@ async function ignorePrivateContext(repository) {
   await atomicWrite(target, `${original.trimEnd()}${original.trim() ? "\n\n" : ""}${addition}`);
 }
 async function writeSourceRecord(projectRoot, record2, sourceFiles) {
-  const target = sourceFiles.get(record2.id) ?? path15.join(projectRoot, "doc", "sources", recordFilename(record2.id, record2.path, "source"));
+  const layout = layoutPaths(projectRoot);
+  const target = sourceFiles.get(record2.id) ?? (layout.compact ? await newRecordPath(layout.sources, record2.id, record2.path, "source") : path18.join(layout.sources, recordFilename(record2.id, record2.path, "source")));
   sourceFiles.set(record2.id, target);
   let body;
   if (await exists(target)) {
@@ -33460,7 +34180,7 @@ async function writeSourceRecord(projectRoot, record2, sourceFiles) {
   }
   const defaultBody = `# ${record2.path}
 
-This record preserves import provenance. Read the source body through \`repo/${record2.path}\` only when its routing metadata makes it relevant.
+This record preserves import provenance. Read source-relative path \`${record2.path}\` from the repository recorded in .local/state.json only when its routing metadata makes it relevant.
 `;
   const contents = body === void 0 ? renderMarkdown(record2, defaultBody) : `---
 ${(0, import_yaml2.stringify)(record2).trimEnd()}
@@ -33469,10 +34189,10 @@ ${body}`;
   await atomicWrite(target, contents);
 }
 async function markAbsentSourceRecords(projectRoot, inventoriedPaths) {
-  const sourceRoot = path15.join(projectRoot, "doc", "sources");
-  for (const entry of await readdir10(sourceRoot, { withFileTypes: true })) {
+  const sourceRoot = layoutPaths(projectRoot).sources;
+  for (const entry of await readdir11(sourceRoot, { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
-    const target = path15.join(sourceRoot, entry.name);
+    const target = path18.join(sourceRoot, entry.name);
     const document = parseMarkdown(await readText(target));
     const data = document.data;
     if (isForwarder(data)) continue;
@@ -33490,22 +34210,22 @@ ${document.body}`);
 }
 async function repositoryLink(link) {
   try {
-    const info = await lstat9(link);
+    const info = await lstat11(link);
     if (!info.isSymbolicLink()) throw new Error(`Repository attachment is not a symlink: ${link}`);
-    return await realpath5(path15.resolve(path15.dirname(link), await readlink3(link)));
+    return await realpath7(path18.resolve(path18.dirname(link), await readlink5(link)));
   } catch (error62) {
     if (error62.code === "ENOENT") return void 0;
     throw error62;
   }
 }
 async function findProjectRoot(start = process.cwd()) {
-  let current = await realpath5(start).catch(() => path15.resolve(start));
+  let current = await realpath7(start).catch(() => path18.resolve(start));
   const resolvedStart = current;
   const repositoryRoot = await git(resolvedStart, ["rev-parse", "--show-toplevel"], true);
   if (repositoryRoot) {
     const primary = await primaryCheckout(repositoryRoot);
-    const shared = path15.join(primary, ".deep-context");
-    if (await exists(path15.join(shared, ".local", "state.json"))) return resolveExplicitProject(shared);
+    const shared = path18.join(primary, ".deep-context");
+    if (await exists(path18.join(shared, ".local", "state.json"))) return resolveExplicitProject(shared);
   }
   let local;
   while (true) {
@@ -33513,17 +34233,17 @@ async function findProjectRoot(start = process.cwd()) {
       local = await resolveExplicitProject(current);
       break;
     }
-    const contained = path15.join(current, "deep-context");
+    const contained = path18.join(current, "deep-context");
     if (current === repositoryRoot && await exists(await machineStatePath(contained))) {
       local = await resolveExplicitProject(contained);
       break;
     }
-    const parent = path15.dirname(current);
+    const parent = path18.dirname(current);
     if (parent === current) break;
     current = parent;
   }
   const commonDirectory = repositoryRoot ? await commonGitDirectory(repositoryRoot) : void 0;
-  const matches = (await readRegistry()).projects.filter((project) => project.repositoryPath === resolvedStart || project.repositoryPath && resolvedStart.startsWith(`${project.repositoryPath}${path15.sep}`) || commonDirectory && project.repositoryCommonDir === commonDirectory);
+  const matches = (await readRegistry()).projects.filter((project) => project.repositoryPath === resolvedStart || project.repositoryPath && resolvedStart.startsWith(`${project.repositoryPath}${path18.sep}`) || commonDirectory && project.repositoryCommonDir === commonDirectory);
   const roots = [...new Set(await Promise.all(matches.map(async (project) => {
     const resolved = await resolveExplicitProject(project.projectRoot);
     const state = JSON.parse(await readText(await machineStatePath(resolved)));
@@ -33541,19 +34261,19 @@ async function primaryCheckout(repository) {
   const listed = await git(root, ["worktree", "list", "--porcelain"]);
   const candidates = listed.split(/\n\n/).map((block) => block.match(/^worktree (.+)$/m)?.[1]).filter((item) => Boolean(item));
   for (const candidate of candidates) {
-    const marker = path15.join(candidate, ".git");
+    const marker = path18.join(candidate, ".git");
     try {
-      if ((await lstat9(marker)).isDirectory()) return await realpath5(candidate);
+      if ((await lstat11(marker)).isDirectory()) return await realpath7(candidate);
     } catch {
     }
   }
-  return await realpath5(root);
+  return await realpath7(root);
 }
 async function commonGitDirectory(repository) {
   if (!await isGitRepository(repository)) return void 0;
   const value = await git(repository, ["rev-parse", "--git-common-dir"], true);
   if (!value) return void 0;
-  return realpath5(path15.isAbsolute(value) ? value : path15.resolve(repository, value)).catch(() => path15.resolve(repository, value));
+  return realpath7(path18.isAbsolute(value) ? value : path18.resolve(repository, value)).catch(() => path18.resolve(repository, value));
 }
 async function readRegistry() {
   const target = projectRegistryPath();
@@ -33567,6 +34287,8 @@ var import_yaml2;
 var init_projects = __esm({
   "src/projects/index.ts"() {
     "use strict";
+    init_layout();
+    init_layout2();
     init_fs();
     init_config();
     init_git();
@@ -33583,7 +34305,7 @@ var init_projects = __esm({
 
 // src/cli/main.ts
 import os2 from "node:os";
-import path23 from "node:path";
+import path26 from "node:path";
 
 // node_modules/.pnpm/commander@14.0.3/node_modules/commander/esm.mjs
 var import_index = __toESM(require_commander(), 1);
@@ -33616,7 +34338,7 @@ init_routing();
 init_names();
 init_templateFiles2();
 init_projects();
-import path16 from "node:path";
+import path19 from "node:path";
 async function repositoryFor(projectRoot) {
   const state = JSON.parse(await readText(await machineStatePath(projectRoot)));
   if (!state.repositoryPath) throw new Error("This project has no attached source repository");
@@ -33626,11 +34348,11 @@ async function repositoryFor(projectRoot) {
 async function createTask(projectRoot, rawName, options) {
   const name = normalizeTaskName(rawName);
   const repository = await repositoryFor(projectRoot);
-  const overview = parseMarkdown(await readText(path16.join(projectRoot, "PROJECT.md"))).data;
+  const overview = parseMarkdown(await readText(path19.join(projectRoot, "PROJECT.md"))).data;
   const policy = overview.source_worktree_policy;
   if (policy !== void 0 && !["allowed", "review-required", "prohibited"].includes(String(policy))) throw new Error(`Unknown source worktree policy: ${String(policy)}`);
   if (policy === "prohibited") throw new Error("The attached source repository prohibits another editable worktree");
-  if ((policy === "review-required" || policy === void 0 && await exists(path16.join(repository, "AGENTS.md"))) && !options.sourceRulesReviewed) {
+  if ((policy === "review-required" || policy === void 0 && await exists(path19.join(repository, "AGENTS.md"))) && !options.sourceRulesReviewed) {
     throw new Error("Read the attached repository instructions and pass --source-rules-reviewed before creating a task worktree");
   }
   const head = await currentHead(repository);
@@ -33641,12 +34363,12 @@ async function createTask(projectRoot, rawName, options) {
   const baseCommit = await git(repository, ["rev-parse", "--verify", `${baseRef}^{commit}`]);
   const branch = options.branch ?? `deep-context/${name}`;
   if (!/^[A-Za-z0-9._/-]+$/.test(branch) || branch.includes("..") || branch.startsWith("/") || branch.endsWith("/")) throw new Error(`Unsafe branch name: ${branch}`);
-  const taskRoot = path16.join(projectRoot, "tasks", name);
-  const worktree = path16.join(taskRoot, "worktree");
-  const statePath2 = path16.join(taskRoot, "TASK_STATE.md");
+  const taskRoot = path19.join(projectRoot, "tasks", name);
+  const worktree = path19.join(taskRoot, "worktree");
+  const statePath2 = path19.join(taskRoot, "TASK_STATE.md");
   if (await exists(statePath2)) {
     const existing = parseMarkdown(await readText(statePath2)).data;
-    if (existing.task !== name || existing.branch !== branch || path16.resolve(taskRoot, String(existing.worktree ?? "")) !== worktree || !await exists(worktree)) throw new Error(`Existing task ${name} has different branch/worktree identity`);
+    if (existing.task !== name || existing.branch !== branch || path19.resolve(taskRoot, String(existing.worktree ?? "")) !== worktree || !await exists(worktree)) throw new Error(`Existing task ${name} has different branch/worktree identity`);
     return taskRoot;
   }
   await ensureDir(taskRoot);
@@ -33655,11 +34377,11 @@ async function createTask(projectRoot, rawName, options) {
     if (branchExists) throw new Error(`Branch already exists without a matching recorded task: ${branch}`);
     const selection = options.feature ? await selectFeatureContext(projectRoot, { [options.feature]: "feature" }) : { levels: {}, files: [] };
     await git(repository, ["worktree", "add", "-b", branch, worktree, baseCommit]);
-    await createExclusive(path16.join(taskRoot, "AGENTS.md"), taskAgents(name));
-    await createExclusive(path16.join(taskRoot, "TASK_CONTEXT.md"), taskContext(name, options.description ?? "", baseRef, options.feature));
-    await createExclusive(path16.join(taskRoot, "CONTEXT_MANIFEST.md"), contextManifest(name, selection.levels, selection.files));
+    await createExclusive(path19.join(taskRoot, "AGENTS.md"), taskAgents(name));
+    await createExclusive(path19.join(taskRoot, "TASK_CONTEXT.md"), taskContext(name, options.description ?? "", baseRef, options.feature));
+    await createExclusive(path19.join(taskRoot, "CONTEXT_MANIFEST.md"), contextManifest(name, selection.levels, selection.files));
     await createExclusive(statePath2, taskState(name, branch, baseRef, baseCommit));
-    await createExclusive(path16.join(taskRoot, "WORKLOG.md"), `# Worklog
+    await createExclusive(path19.join(taskRoot, "WORKLOG.md"), `# Worklog
 
 Transient working notes. Promote durable knowledge before closure.
 `);
@@ -33671,11 +34393,11 @@ Transient working notes. Promote durable knowledge before closure.
 }
 async function checkpointTask(projectRoot, rawName, nextAction) {
   const name = normalizeTaskName(rawName);
-  const target = path16.join(projectRoot, "tasks", name, "TASK_STATE.md");
+  const target = path19.join(projectRoot, "tasks", name, "TASK_STATE.md");
   if (!await exists(target)) throw new Error(`Unknown task: ${name}`);
   const document = parseMarkdown(await readText(target));
   document.data.updated_at = (/* @__PURE__ */ new Date()).toISOString();
-  const stamp = `- Checkpointed at ${document.data.updated_at}; source HEAD ${await currentHead(path16.join(projectRoot, "tasks", name, "worktree")) ?? "unavailable"}.`;
+  const stamp = `- Checkpointed at ${document.data.updated_at}; source HEAD ${await currentHead(path19.join(projectRoot, "tasks", name, "worktree")) ?? "unavailable"}.`;
   let body = document.body.trimEnd();
   if (nextAction) body = body.replace(/(## Exact Next Safe Action\n\n)([\s\S]*?)(?=\n## |$)/, `$1${nextAction}
 `);
@@ -33693,48 +34415,55 @@ init_projects();
 init_indexing();
 init_names();
 init_records();
+init_layout();
 init_memory();
 init_source();
-import { createHash as createHash4 } from "node:crypto";
-import { cp as cp2, readdir as readdir12, rm as rm5, realpath as realpath7, readFile as readFile5 } from "node:fs/promises";
-import path18 from "node:path";
+import { createHash as createHash6 } from "node:crypto";
+import { cp as cp2, readdir as readdir13, rm as rm7, realpath as realpath9, readFile as readFile7 } from "node:fs/promises";
+import path21 from "node:path";
 
 // src/closure/recovery.ts
 init_fs();
 init_git();
 init_source();
+init_layout();
 init_indexing();
-import { createHash as createHash3 } from "node:crypto";
-import { readdir as readdir11, readFile as readFile4, realpath as realpath6, rm as rm4 } from "node:fs/promises";
-import path17 from "node:path";
+import { createHash as createHash5 } from "node:crypto";
+import { readdir as readdir12, readFile as readFile6, realpath as realpath8, rm as rm6 } from "node:fs/promises";
+import path20 from "node:path";
 async function digestTree(root, skip = () => false) {
-  const hash2 = createHash3("sha256");
+  const hash3 = createHash5("sha256");
   async function walk(directory) {
     if (!await exists(directory)) return;
-    for (const entry of (await readdir11(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
-      const file2 = path17.join(directory, entry.name);
-      const relative = path17.relative(root, file2);
+    for (const entry of (await readdir12(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+      const file2 = path20.join(directory, entry.name);
+      const relative = path20.relative(root, file2);
       if (skip(relative)) continue;
       if (entry.isSymbolicLink()) throw new Error(`Closure recovery rejects symlink: ${file2}`);
       if (entry.isDirectory()) await walk(file2);
-      else if (entry.isFile()) hash2.update(relative).update(await readFile4(file2));
+      else if (entry.isFile()) hash3.update(relative).update(await readFile6(file2));
     }
   }
   await walk(root);
-  return hash2.digest("hex");
+  return hash3.digest("hex");
 }
-var skipWorktree = (relative) => relative === "worktree" || relative.startsWith(`worktree${path17.sep}`);
+var skipWorktree = (relative) => relative === "worktree" || relative.startsWith(`worktree${path20.sep}`);
 async function contextDigest(root) {
-  const hash2 = createHash3("sha256");
-  hash2.update(await digestTree(path17.join(root, "doc"), (relative) => relative.startsWith(`reports${path17.sep}closures${path17.sep}`) || !relative.includes(path17.sep) && relative !== "ARCHITECTURE.md"));
-  for (const file2 of ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md", "START_HERE.md", "docs/plan/TASKS.md", "docs/plan/STATUS.json"]) {
-    if (await exists(path17.join(root, file2))) hash2.update(file2).update(await readFile4(path17.join(root, file2)));
+  const hash3 = createHash5("sha256");
+  const layout = layoutPaths(root);
+  hash3.update(await digestTree(layout.docs, (relative) => relative.startsWith(`reports${path20.sep}closures${path20.sep}`) || !relative.includes(path20.sep) && relative !== path20.basename(layout.architecture)));
+  if (layout.compact) {
+    hash3.update(await digestTree(layout.work));
+    hash3.update(await digestTree(layout.sources));
   }
-  return hash2.digest("hex");
+  for (const file2 of ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md", "START_HERE.md", "docs/plan/TASKS.md", "docs/plan/STATUS.json"]) {
+    if (await exists(path20.join(root, file2))) hash3.update(file2).update(await readFile6(path20.join(root, file2)));
+  }
+  return hash3.digest("hex");
 }
 function paths(root, taskRoot, taskId) {
   if (typeof taskId !== "string" || !/^[0-9a-f-]{36}$/i.test(taskId)) throw new Error("Invalid closure task identity");
-  return { receipt: path17.join(root, ".local/closure-operations", `${path17.basename(taskRoot)}.json`), archive: path17.join(root, ".local/archives", taskId) };
+  return { receipt: path20.join(root, ".local/closure-operations", `${path20.basename(taskRoot)}.json`), archive: path20.join(root, ".local/archives", taskId) };
 }
 async function stageClosure(root, taskRoot, state) {
   const target = paths(root, taskRoot, state.task_id);
@@ -33750,38 +34479,38 @@ async function stageClosure(root, taskRoot, state) {
 async function recoverClosure(root, taskRoot, state) {
   const target = paths(root, taskRoot, state.task_id);
   if (!await exists(target.receipt)) return void 0;
-  const receipt = JSON.parse(await readFile4(target.receipt, "utf8"));
+  const receipt = JSON.parse(await readFile6(target.receipt, "utf8"));
   if (receipt.taskId !== state.task_id || receipt.taskDigest !== await digestTree(taskRoot, skipWorktree) || receipt.archiveDigest !== await digestTree(target.archive) || receipt.contextDigest !== await contextDigest(root)) throw new Error("Closure recovery evidence changed; preserve task and archive for review");
   const binding = state.source_binding;
   const owned = binding.ownership === "deep-context";
-  const worktree = path17.join(taskRoot, "worktree");
+  const worktree = path20.join(taskRoot, "worktree");
   if (!owned || await exists(worktree)) {
     if (receipt.source !== JSON.stringify(await sourceSnapshot(root, binding))) throw new Error("Closure recovery source evidence changed");
   }
   if (owned && await exists(worktree)) {
-    if (!binding.path || await realpath6(binding.path) !== worktree) throw new Error("Closure recovery worktree identity mismatch");
+    if (!binding.path || await realpath8(binding.path) !== worktree) throw new Error("Closure recovery worktree identity mismatch");
     if (await git(worktree, ["status", "--porcelain=v1"])) throw new Error("Task worktree is not clean");
     await git(worktree, ["worktree", "remove", worktree]);
   }
   await rebuildIndexes(root);
-  await rm4(taskRoot, { recursive: true });
-  await rm4(target.receipt);
+  await rm6(taskRoot, { recursive: true });
+  await rm6(target.receipt);
   return target.archive;
 }
 
 // src/closure/index.ts
 async function closureTaskRoot(root, selector) {
-  const candidate = path18.join(root, "tasks", normalizeTaskName(selector));
+  const candidate = path21.join(root, "tasks", normalizeTaskName(selector));
   const activeMatches = [];
-  for (const entry of await readdir12(path18.join(root, "tasks"), { withFileTypes: true })) {
+  for (const entry of await readdir13(path21.join(root, "tasks"), { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
-    const task = path18.join(root, "tasks", entry.name);
-    if (await exists(path18.join(task, "TASK_STATE.md")) && parseMarkdown(await readText(path18.join(task, "TASK_STATE.md"))).data.task_id === selector) activeMatches.push(task);
+    const task = path21.join(root, "tasks", entry.name);
+    if (await exists(path21.join(task, "TASK_STATE.md")) && parseMarkdown(await readText(path21.join(task, "TASK_STATE.md"))).data.task_id === selector) activeMatches.push(task);
   }
   if (activeMatches.length > 1) throw new Error("Duplicate active task UUID");
-  const target = activeMatches[0] ?? (await exists(path18.join(candidate, "TASK_STATE.md")) ? candidate : (await resolveMemoryTask(root, selector)).taskPath);
-  const actual = await realpath7(target);
-  const taskDirectory = await realpath7(path18.join(root, "tasks"));
+  const target = activeMatches[0] ?? (await exists(path21.join(candidate, "TASK_STATE.md")) ? candidate : (await resolveMemoryTask(root, selector)).taskPath);
+  const actual = await realpath9(target);
+  const taskDirectory = await realpath9(path21.join(root, "tasks"));
   if (!within(taskDirectory, actual) || actual === taskDirectory) throw new Error("Closure requires an active task inside this project");
   return actual;
 }
@@ -33789,9 +34518,9 @@ async function walkFiles(root, skip) {
   if (!await exists(root)) return [];
   const output3 = [];
   async function visit2(directory) {
-    for (const entry of await readdir12(directory, { withFileTypes: true })) {
-      const absolute = path18.join(directory, entry.name);
-      const relative = path18.relative(root, absolute);
+    for (const entry of await readdir13(directory, { withFileTypes: true })) {
+      const absolute = path21.join(directory, entry.name);
+      const relative = path21.relative(root, absolute);
       if (skip?.(relative)) continue;
       if (entry.isSymbolicLink()) throw new Error(`Context evidence may not contain a symlink: ${absolute}`);
       if (entry.isDirectory()) await visit2(absolute);
@@ -33802,13 +34531,13 @@ async function walkFiles(root, skip) {
   return output3.sort();
 }
 async function evidence(projectRoot, taskRoot) {
-  const state = parseMarkdown(await readText(path18.join(taskRoot, "TASK_STATE.md"))).data;
-  const worktree = path18.join(taskRoot, "worktree");
-  const hash2 = createHash4("sha256");
+  const state = parseMarkdown(await readText(path21.join(taskRoot, "TASK_STATE.md"))).data;
+  const worktree = path21.join(taskRoot, "worktree");
+  const hash3 = createHash6("sha256");
   let summary;
   if (state.schema_version === 2) {
     const source = await sourceSnapshot(projectRoot, state.source_binding);
-    hash2.update(JSON.stringify(source));
+    hash3.update(JSON.stringify(source));
     summary = `Task ID: ${String(state.task_id)}
 Source evidence: ${JSON.stringify(source)}`;
   } else {
@@ -33818,8 +34547,8 @@ Source evidence: ${JSON.stringify(source)}`;
     const working = await git(worktree, ["diff", "--binary", "HEAD"]);
     const staged = await git(worktree, ["diff", "--binary", "--cached", "HEAD"]);
     const untracked = (await git(worktree, ["ls-files", "--others", "--exclude-standard", "-z"])).split("\0").filter(Boolean).sort();
-    hash2.update(JSON.stringify({ base, head, committed, working, staged, untracked }));
-    for (const file2 of untracked) hash2.update(file2).update(await readFile5(path18.join(worktree, file2)));
+    hash3.update(JSON.stringify({ base, head, committed, working, staged, untracked }));
+    for (const file2 of untracked) hash3.update(file2).update(await readFile7(path21.join(worktree, file2)));
     summary = `Base: ${base}
 HEAD: ${head}
 Committed diff bytes: ${Buffer.byteLength(committed)}
@@ -33827,23 +34556,24 @@ Working diff bytes: ${Buffer.byteLength(working)}
 Staged diff bytes: ${Buffer.byteLength(staged)}
 Untracked files: ${untracked.length}`;
   }
-  const taskFiles = await walkFiles(taskRoot, (relative) => relative === "worktree" || relative.startsWith(`worktree${path18.sep}`) || relative === "CLOSURE_REVIEW.md");
-  const contextFiles = await walkFiles(path18.join(projectRoot, "doc"), (relative) => relative.startsWith(`reports${path18.sep}closures${path18.sep}`));
-  const authorityFiles = ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md", "START_HERE.md", "docs/plan/TASKS.md", "docs/plan/STATUS.json"].map((relative) => path18.join(projectRoot, relative));
+  const taskFiles = await walkFiles(taskRoot, (relative) => relative === "worktree" || relative.startsWith(`worktree${path21.sep}`) || relative === "CLOSURE_REVIEW.md");
+  const layout = layoutPaths(projectRoot);
+  const contextFiles = await walkFiles(layout.docs, (relative) => relative.startsWith(`reports${path21.sep}closures${path21.sep}`));
+  const authorityFiles = ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md"].map((relative) => path21.join(projectRoot, relative));
   for (const file2 of [...taskFiles, ...contextFiles, ...authorityFiles]) {
-    if (await exists(file2)) hash2.update(path18.relative(projectRoot, file2)).update(await readText(file2));
+    if (await exists(file2)) hash3.update(path21.relative(projectRoot, file2)).update(await readText(file2));
   }
-  return { fingerprint: hash2.digest("hex"), summary };
+  return { fingerprint: hash3.digest("hex"), summary };
 }
 async function prepareClosure(projectRoot, taskName, options = {}) {
-  if (!await exists(path18.join(projectRoot, "tasks"))) throw new Error(`Unknown task: ${taskName}`);
+  if (!await exists(path21.join(projectRoot, "tasks"))) throw new Error(`Unknown task: ${taskName}`);
   return withProjectLock(projectRoot, () => prepare(projectRoot, taskName, options));
 }
 async function prepare(projectRoot, taskName, options) {
   const taskRoot = await closureTaskRoot(projectRoot, taskName);
-  const name = path18.basename(taskRoot);
-  if (!await exists(path18.join(taskRoot, "TASK_STATE.md"))) throw new Error(`Unknown task: ${taskName}`);
-  const taskState2 = parseMarkdown(await readText(path18.join(taskRoot, "TASK_STATE.md"))).data;
+  const name = path21.basename(taskRoot);
+  if (!await exists(path21.join(taskRoot, "TASK_STATE.md"))) throw new Error(`Unknown task: ${taskName}`);
+  const taskState2 = parseMarkdown(await readText(path21.join(taskRoot, "TASK_STATE.md"))).data;
   if (taskState2.schema_version === 2) await assertMemoryOwner(taskRoot, options);
   if (taskState2.task !== name) throw new Error(`Task identity mismatch: expected ${name}`);
   await rebuildIndexes(projectRoot);
@@ -33882,24 +34612,29 @@ ${current.summary}
 
 An agent must review the evidence, update durable context, list promotion references, set \`findings_resolved: true\`, identify itself in \`reviewer\`, set \`status: approved\`, and rerun \`close-task\` if evidence changes.
 `);
-  const target = path18.join(taskRoot, "CLOSURE_REVIEW.md");
-  const instructions = "## Classification Record\n\nAdd one `knowledge_review` entry for every task-local Markdown note: `{ path, classification: transient|promoted, promotion_references: [] }`. Promoted paths must exist under `doc/` or at `PROJECT.md`; no path under `tasks/` counts as durable. Empty `unresolved_findings` is required. Classify a note as transient only after inspecting it and confirming no knowledge needed by future work remains there.\n\n";
+  const target = path21.join(taskRoot, "CLOSURE_REVIEW.md");
+  const durableRoot = layoutPaths(projectRoot).compact ? "docs/ or work/items/" : "doc/";
+  const instructions = `## Classification Record
+
+Add one \`knowledge_review\` entry for every task-local Markdown note: \`{ path, classification: transient|promoted, promotion_references: [] }\`. Promoted paths must exist under ${durableRoot} or at \`PROJECT.md\`; no path under \`tasks/\` counts as durable. Empty \`unresolved_findings\` is required. Classify a note as transient only after inspecting it and confirming no knowledge needed by future work remains there.
+
+`;
   await atomicWrite(target, review.replace("## Finalization Instructions\n", `${instructions}## Finalization Instructions
 `));
   return target;
 }
 async function finalizeClosure(projectRoot, taskName, options = {}) {
-  if (!await exists(path18.join(projectRoot, "tasks"))) throw new Error("Run close-task before --finalize");
+  if (!await exists(path21.join(projectRoot, "tasks"))) throw new Error("Run close-task before --finalize");
   const archive = await withProjectLock(projectRoot, () => finalize2(projectRoot, taskName, options));
   await rebuildChatIndex(projectRoot);
   return archive;
 }
 async function finalize2(projectRoot, taskName, options) {
   const taskRoot = await closureTaskRoot(projectRoot, taskName);
-  const name = path18.basename(taskRoot);
-  const reviewPath = path18.join(taskRoot, "CLOSURE_REVIEW.md");
+  const name = path21.basename(taskRoot);
+  const reviewPath = path21.join(taskRoot, "CLOSURE_REVIEW.md");
   if (!await exists(reviewPath)) throw new Error("Run close-task before --finalize");
-  const taskState2 = parseMarkdown(await readText(path18.join(taskRoot, "TASK_STATE.md"))).data;
+  const taskState2 = parseMarkdown(await readText(path21.join(taskRoot, "TASK_STATE.md"))).data;
   if (taskState2.schema_version === 2) await assertMemoryOwner(taskRoot, options);
   if (taskState2.schema_version === 2) {
     const recovered = await recoverClosure(projectRoot, taskRoot, taskState2);
@@ -33911,7 +34646,7 @@ async function finalize2(projectRoot, taskName, options) {
   if (taskState2.task_id && review.data.task_id !== taskState2.task_id) throw new Error("Closure task UUID mismatch");
   if (review.data.status !== "approved" || review.data.findings_resolved !== true || !review.data.reviewer) throw new Error("Closure review is not approved and fully resolved");
   if (!Array.isArray(review.data.unresolved_findings) || review.data.unresolved_findings.length > 0) throw new Error("Closure has unresolved findings");
-  const noteFiles = (await walkFiles(taskRoot, (relative) => relative === "worktree" || relative.startsWith(`worktree${path18.sep}`) || relative === "CLOSURE_REVIEW.md")).filter((file2) => path18.basename(file2) !== "CLOSURE_REVIEW.md");
+  const noteFiles = (await walkFiles(taskRoot, (relative) => relative === "worktree" || relative.startsWith(`worktree${path21.sep}`) || relative === "CLOSURE_REVIEW.md")).filter((file2) => path21.basename(file2) !== "CLOSURE_REVIEW.md");
   const knowledge = review.data.knowledge_review;
   if (!Array.isArray(knowledge)) throw new Error("Task notes need explicit knowledge classification");
   const classified = /* @__PURE__ */ new Map();
@@ -33921,7 +34656,7 @@ async function finalize2(projectRoot, taskName, options) {
     if (typeof entry.path !== "string" || !["transient", "promoted"].includes(String(entry.classification)) || classified.has(entry.path)) throw new Error("Invalid or duplicate knowledge classification");
     classified.set(entry.path, { classification: String(entry.classification), promotion_references: entry.promotion_references });
   }
-  const noteNames = new Set(noteFiles.map((file2) => path18.relative(taskRoot, file2)));
+  const noteNames = new Set(noteFiles.map((file2) => path21.relative(taskRoot, file2)));
   if (classified.size !== noteNames.size || [...classified.keys()].some((file2) => !noteNames.has(file2))) throw new Error("Every task note must be classified before finalization");
   for (const note of noteNames) if (!classified.has(note)) throw new Error(`Unclassified task note: ${note}`);
   const promotions = Array.isArray(review.data.promotion_references) ? review.data.promotion_references.map(String) : [];
@@ -33933,27 +34668,30 @@ async function finalize2(projectRoot, taskName, options) {
     for (const reference of references) promoted.add(reference);
   }
   if (promotions.length !== promoted.size || promotions.some((reference) => !promoted.has(reference))) throw new Error("Promotion references do not match classified task notes");
-  const taskStateBody = parseMarkdown(await readText(path18.join(taskRoot, "TASK_STATE.md"))).body;
+  const taskStateBody = parseMarkdown(await readText(path21.join(taskRoot, "TASK_STATE.md"))).body;
   const pending = taskStateBody.match(/## Decisions and Discoveries Awaiting Promotion\n\n([\s\S]*?)(?=\n## |$)/)?.[1]?.trim();
   if (pending && pending !== "- None." && classified.get("TASK_STATE.md")?.classification !== "promoted") throw new Error("Task discoveries remain unpromoted");
   for (const file2 of noteFiles) {
-    if (/\bUNCLASSIFIED\b/i.test(await readText(file2))) throw new Error(`Unclassified durable information remains in ${path18.relative(taskRoot, file2)}`);
+    if (/\bUNCLASSIFIED\b/i.test(await readText(file2))) throw new Error(`Unclassified durable information remains in ${path21.relative(taskRoot, file2)}`);
   }
   for (const reference of promotions) {
-    const target = path18.resolve(projectRoot, reference);
-    const durableRoot = path18.join(projectRoot, "doc");
-    if (!(within(durableRoot, target) && target !== durableRoot) && target !== path18.join(projectRoot, "PROJECT.md")) throw new Error(`Promotion must point to durable project context: ${reference}`);
+    const target = path21.resolve(projectRoot, reference);
+    const layout2 = layoutPaths(projectRoot);
+    const roots = layout2.compact ? [layout2.docs, layout2.work, layout2.sources] : [layout2.docs];
+    const allowed = roots.some((root) => within(root, target) && target !== root) && path21.basename(target) !== "INDEX.md";
+    if (!allowed && target !== path21.join(projectRoot, "PROJECT.md")) throw new Error(`Promotion must point to durable project context: ${reference}`);
     if (!await exists(target)) throw new Error(`Missing promotion reference: ${reference}`);
-    const actual = await realpath7(target);
-    if (!within(await realpath7(durableRoot), actual) && actual !== await realpath7(path18.join(projectRoot, "PROJECT.md"))) throw new Error(`Promotion escapes durable context: ${reference}`);
+    const actual = await realpath9(target);
+    const realRoots = await Promise.all(roots.map((root) => realpath9(root)));
+    if (!realRoots.some((root) => within(root, actual)) && actual !== await realpath9(path21.join(projectRoot, "PROJECT.md"))) throw new Error(`Promotion escapes durable context: ${reference}`);
   }
   const current = await evidence(projectRoot, taskRoot);
   if (review.data.evidence_fingerprint !== current.fingerprint) throw new Error("Closure evidence changed after review; run close-task and review again");
   const binding = taskState2.source_binding;
   const ownsWorktree = taskState2.schema_version !== 2 || binding?.ownership === "deep-context";
-  const worktree = taskState2.schema_version === 2 ? binding?.path : path18.join(taskRoot, "worktree");
+  const worktree = taskState2.schema_version === 2 ? binding?.path : path21.join(taskRoot, "worktree");
   if (ownsWorktree) {
-    if (!worktree || await realpath7(worktree) !== path18.join(taskRoot, "worktree")) throw new Error("Owned worktree identity mismatch");
+    if (!worktree || await realpath9(worktree) !== path21.join(taskRoot, "worktree")) throw new Error("Owned worktree identity mismatch");
     const status = await git(worktree, ["status", "--porcelain=v1"]);
     if (status) throw new Error("Task worktree is not clean; finalization refuses destructive cleanup");
   }
@@ -33961,18 +34699,20 @@ async function finalize2(projectRoot, taskName, options) {
   if (ownsWorktree && !projectState.repositoryPath) throw new Error("Project has no recorded source repository");
   const repository = projectState.repositoryPath;
   const archiveName = taskState2.task_id ? String(taskState2.task_id) : `${name}-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}`;
-  const archiveRoot = path18.join(projectRoot, ".local", "archives", archiveName);
+  const archiveRoot = path21.join(projectRoot, ".local", "archives", archiveName);
   if (taskState2.schema_version === 2 && await exists(archiveRoot)) throw new Error("Incomplete archive exists without a recovery receipt; preserve it for explicit review before retrying");
   await ensureDir(archiveRoot);
-  for (const entry of await readdir12(taskRoot, { withFileTypes: true })) {
+  for (const entry of await readdir13(taskRoot, { withFileTypes: true })) {
     if (entry.name === "worktree") continue;
-    await cp2(path18.join(taskRoot, entry.name), path18.join(archiveRoot, entry.name), { recursive: true });
+    await cp2(path21.join(taskRoot, entry.name), path21.join(archiveRoot, entry.name), { recursive: true });
   }
-  const manifest = parseMarkdown(await readText(path18.join(taskRoot, "CONTEXT_MANIFEST.md"))).data;
+  const manifest = parseMarkdown(await readText(path21.join(taskRoot, "CONTEXT_MANIFEST.md"))).data;
   const levels = manifest.features && typeof manifest.features === "object" && !Array.isArray(manifest.features) ? manifest.features : {};
   const features = Object.entries(levels).filter(([, level]) => level === "feature" || level === "deep").map(([feature]) => feature).sort();
   const reportId = `CLOSURE-${archiveName.toUpperCase()}`;
-  const reportPath = path18.join(projectRoot, "doc", "reports", "closures", recordFilename(reportId, `Closure of ${name}`, "closure"));
+  const layout = layoutPaths(projectRoot);
+  const reportDirectory = path21.join(layout.reports, "closures");
+  const reportPath = layout.compact ? await newRecordPath(reportDirectory, reportId, `Closure of ${name}`, "closure") : path21.join(reportDirectory, recordFilename(reportId, `Closure of ${name}`, "closure"));
   await atomicWrite(reportPath, renderMarkdown({
     id: reportId,
     title: `Closure of ${name}`,
@@ -33991,17 +34731,18 @@ Raw task and chat evidence is retained locally under .local/archives/${archiveNa
   await rebuildIndexes(projectRoot);
   if (taskState2.schema_version === 2) {
     for (const name2 of ["AGENTS.md", "CONTEXT_MANIFEST.md"]) {
-      const archivedPath = path18.join(archiveRoot, name2);
+      const archivedPath = path21.join(archiveRoot, name2);
       const original = await readText(archivedPath);
       await atomicWrite(archivedPath, "<!-- Closed archive: read-only history; do not execute or resume source work here. -->\n" + original.replace(/\.\.\/\.\.\//g, "../../../../"));
     }
-    const archivedStatePath = path18.join(archiveRoot, "TASK_STATE.md");
+    const archivedStatePath = path21.join(archiveRoot, "TASK_STATE.md");
     const archivedState = parseMarkdown(await readText(archivedStatePath));
     archivedState.data.status = "closed";
     archivedState.data.owner_binding_id = null;
+    archivedState.data.closure_report = path21.relative(projectRoot, reportPath).split(path21.sep).join("/");
     await atomicWrite(archivedStatePath, renderMarkdown(archivedState.data, archivedState.body));
-    for (const file2 of await walkFiles(path18.join(archiveRoot, "chats"))) {
-      if (path18.basename(file2) !== "MEMORY.md") continue;
+    for (const file2 of await walkFiles(path21.join(archiveRoot, "chats"))) {
+      if (path21.basename(file2) !== "MEMORY.md") continue;
       const chat = parseMarkdown(await readText(file2));
       chat.data.status = "released";
       await atomicWrite(file2, renderMarkdown(chat.data, chat.body));
@@ -34010,18 +34751,20 @@ Raw task and chat evidence is retained locally under .local/archives/${archiveNa
     return await recoverClosure(projectRoot, taskRoot, taskState2);
   }
   if (ownsWorktree) await git(repository, ["worktree", "remove", worktree]);
-  await rm5(taskRoot, { recursive: true });
+  await rm7(taskRoot, { recursive: true });
   return archiveRoot;
 }
 
 // src/cli/main.ts
 init_validation();
 init_memory();
+init_layout2();
 
 // src/backlog/index.ts
 var import_yaml3 = __toESM(require_dist(), 1);
 init_fs();
 init_records();
+init_layout();
 init_frontmatter();
 init_schemas3();
 init_indexing();
@@ -34029,14 +34772,119 @@ init_transactions();
 init_transactions2();
 init_transactions3();
 import { randomUUID as randomUUID6 } from "node:crypto";
-import path19 from "node:path";
+import path22 from "node:path";
+async function assertCompactReady(root) {
+  await assertNoPending(root);
+  await assertNoPendingContext(root);
+  await assertNoPendingFilenameOperations(root);
+}
+async function captureWorkItem(root, options) {
+  if (![options.title, options.pitch, options.provenance].every((value) => value?.trim())) throw new Error("Work item title, pitch, and provenance are required");
+  return withProjectLock(root, async () => {
+    await assertCompactReady(root);
+    const layout = layoutPaths(root);
+    if (!layout.compact) throw new Error("Compact work items require the compact layout");
+    const id = `WORK-${randomUUID6().toUpperCase()}`;
+    const target = await newRecordPath(layout.work, id, options.title, "work-item");
+    const item = workItemSchema.parse({ id, title: options.title.trim(), pitch: options.pitch.trim(), provenance: options.provenance.trim(), status: "proposed", features: options.features ?? [], tokens: [], related: options.related ?? [], conflicts: options.conflicts ?? [], aliases: [], tasks: [], requirements: [], decisions: [], open_gates: [] });
+    await writeTransaction(root, /* @__PURE__ */ new Map([[target, renderMarkdown(item, `# ${item.title}
+
+${item.pitch}
+
+## Planning notes
+
+- Captured proposal; implementation is not authorized.
+`)]]));
+    await rebuildIndexes(root);
+    return target;
+  });
+}
+async function activateWorkItem(root, id, objective, options = {}) {
+  if (!objective.trim()) throw new Error("Accepted objective is required");
+  return withProjectLock(root, async () => {
+    await assertCompactReady(root);
+    const layout = layoutPaths(root);
+    if (!layout.compact) throw new Error("Compact work items require the compact layout");
+    const target = await canonicalRecordById(layout.work, id);
+    if (!target) throw new Error(`Unknown work item: ${id}`);
+    const document = parseMarkdown(await readText(target));
+    const item = workItemSchema.parse(document.data);
+    if (!["proposed", "planned", "blocked"].includes(item.status)) throw new Error(`Work item cannot activate from status ${item.status}`);
+    if (options.tasks?.length) throw new Error("Attach execution tasks with start-task or resume-task so both work and task records are journaled together");
+    const conflicts = [];
+    for (const conflictId of item.conflicts) {
+      const conflictPath = await canonicalRecordById(layout.work, conflictId);
+      if (!conflictPath) throw new Error(`Conflicting work item is missing: ${conflictId}`);
+      const conflict = workItemSchema.parse(parseMarkdown(await readText(conflictPath)).data);
+      if (conflict.status === "active") conflicts.push({ file: conflictPath, data: conflict });
+    }
+    const writes = /* @__PURE__ */ new Map();
+    if (conflicts.length) {
+      if (!options.decision) throw new Error(`Unresolved opposing intent: ${conflicts.map((conflict) => conflict.data.id).join(", ")}; an accepted decision is required`);
+      const decisionPath = path22.resolve(root, options.decision);
+      if (!within(layout.decisions, decisionPath)) throw new Error("Resolution must be a durable decision");
+      const decision = decisionSchema.parse(parseMarkdown(await readText(decisionPath)).data);
+      const resolves = Array.isArray(decision.resolves) ? decision.resolves.map(String) : [];
+      if (decision.status !== "accepted" || ![item.id, ...conflicts.map((conflict) => conflict.data.id)].every((work) => resolves.includes(work))) throw new Error("Decision must explicitly resolve the proposed and opposing work IDs");
+      for (const conflict of conflicts) {
+        const opposing = parseMarkdown(await readText(conflict.file));
+        opposing.data.status = "merged";
+        opposing.data.merged_into = item.id;
+        delete opposing.data.order;
+        opposing.data.status_history = [...Array.isArray(opposing.data.status_history) ? opposing.data.status_history : [], { from: conflict.data.status, to: "merged", decision: options.decision }];
+        writes.set(conflict.file, renderMarkdown(opposing.data, opposing.body));
+      }
+    }
+    document.data.status = "active";
+    document.data.objective = objective.trim();
+    delete document.data.order;
+    document.data.status_history = [...Array.isArray(document.data.status_history) ? document.data.status_history : [], { from: item.status, to: "active", ...options.decision ? { decision: options.decision } : {} }];
+    if (options.decision) document.data.decisions = [.../* @__PURE__ */ new Set([...item.decisions ?? [], options.decision])];
+    writes.set(target, renderMarkdown(document.data, document.body));
+    await writeTransaction(root, writes);
+    await rebuildIndexes(root);
+    return target;
+  });
+}
+async function setWorkItemStatus(root, id, status, options = {}) {
+  return withProjectLock(root, async () => {
+    await assertCompactReady(root);
+    const layout = layoutPaths(root);
+    if (!layout.compact) throw new Error("Compact work items require the compact layout");
+    const target = await canonicalRecordById(layout.work, id);
+    if (!target) throw new Error(`Unknown work item: ${id}`);
+    const document = parseMarkdown(await readText(target));
+    const item = workItemSchema.parse(document.data);
+    if (["merged", "done"].includes(item.status)) throw new Error(`${item.status === "done" ? "Done" : "Merged"} work items are terminal; create a successor work item instead`);
+    if (status === "done" && !options.outcome?.trim()) throw new Error("Completed work requires a durable outcome");
+    if (status === "merged" && !options.mergedInto?.trim()) throw new Error("Merged work requires its target work item");
+    if (status === "merged") {
+      const mergedTarget = await canonicalRecordById(layout.work, options.mergedInto.trim());
+      if (!mergedTarget) throw new Error("Merged work must identify another canonical target");
+      const targetItem = workItemSchema.parse(parseMarkdown(await readText(mergedTarget)).data);
+      if (targetItem.id === item.id) throw new Error("Merged work must identify another canonical target");
+    }
+    document.data.status = status;
+    if (status !== "planned") delete document.data.order;
+    if (status === "done") {
+      document.data.outcome = options.outcome.trim();
+      document.data.open_gates = [...new Set(options.openGates ?? [])];
+    }
+    if (status === "merged") document.data.merged_into = options.mergedInto.trim();
+    document.data.status_history = [...Array.isArray(document.data.status_history) ? document.data.status_history : [], { from: item.status, to: status }];
+    await writeTransaction(root, /* @__PURE__ */ new Map([[target, renderMarkdown(document.data, document.body)]]));
+    await rebuildIndexes(root);
+    return target;
+  });
+}
 async function captureBacklog(root, options) {
+  if (layoutPaths(root).compact) return captureWorkItem(root, options);
   if (![options.title, options.pitch, options.provenance].every((value) => value?.trim())) throw new Error("Backlog title, elevator pitch, and provenance are required");
   return withProjectLock(root, async () => {
     await assertNoPendingContext(root);
     await assertNoPendingFilenameOperations(root);
     const id = `BACKLOG-${randomUUID6().toUpperCase()}`;
-    const target = path19.join(root, "doc", "backlog", recordFilename(id, options.title, "backlog"));
+    const target = path22.join(root, "doc", "backlog", recordFilename(id, options.title, "backlog"));
     const data = backlogSchema.parse({ id, title: options.title.trim(), pitch: options.pitch.trim(), status: "proposed", features: options.features ?? [], tokens: [], provenance: options.provenance.trim(), related: options.related ?? [], conflicts: options.conflicts ?? [], status_history: [] });
     await writeContextOperation(root, /* @__PURE__ */ new Map([[target, renderMarkdown(data, `# ${data.title}
 
@@ -34054,27 +34902,28 @@ async function byId(directory, id) {
   return canonicalRecordById(directory, id);
 }
 async function activateBacklog(root, id, objective, options) {
+  if (layoutPaths(root).compact) return activateWorkItem(root, id, objective, options);
   if (!objective.trim()) throw new Error("Accepted objective is required");
   return withProjectLock(root, async () => {
     await assertNoPendingContext(root);
     await assertNoPendingFilenameOperations(root);
-    const backlogPath = await byId(path19.join(root, "doc", "backlog"), id);
+    const backlogPath = await byId(path22.join(root, "doc", "backlog"), id);
     if (!backlogPath) throw new Error(`Unknown Backlog ID: ${id}`);
     const item = parseMarkdown(await readText(backlogPath));
     const data = backlogSchema.parse(item.data);
     if (!["proposed", "planned"].includes(data.status)) throw new Error(`Backlog item cannot activate from status ${data.status}`);
     const conflicts = [];
     for (const relatedId of data.conflicts) {
-      const activePath2 = await byId(path19.join(root, "doc", "active"), relatedId);
+      const activePath2 = await byId(path22.join(root, "doc", "active"), relatedId);
       if (activePath2 && activeSchema.parse(parseMarkdown(await readText(activePath2)).data).status === "active") conflicts.push({ id: relatedId, path: activePath2 });
-      const otherPath = await byId(path19.join(root, "doc", "backlog"), relatedId);
+      const otherPath = await byId(path22.join(root, "doc", "backlog"), relatedId);
       if (otherPath && backlogSchema.parse(parseMarkdown(await readText(otherPath)).data).status === "active") conflicts.push({ id: relatedId, path: otherPath });
     }
     const writes = /* @__PURE__ */ new Map();
     if (conflicts.length) {
       if (!options.decision) throw new Error(`Unresolved opposing intent: ${conflicts.map((item2) => item2.id).join(", ")}; an accepted decision is required`);
-      const decisionPath = path19.resolve(root, options.decision);
-      if (!within(path19.join(root, "doc", "decisions"), decisionPath)) throw new Error("Resolution must be a durable decision");
+      const decisionPath = path22.resolve(root, options.decision);
+      if (!within(path22.join(root, "doc", "decisions"), decisionPath)) throw new Error("Resolution must be a durable decision");
       const decision = decisionSchema.parse(parseMarkdown(await readText(decisionPath)).data);
       const resolves = Array.isArray(decision.resolves) ? decision.resolves.map(String) : [];
       if (decision.status !== "accepted" || ![id, ...conflicts.map((item2) => item2.id)].every((work) => resolves.includes(work))) throw new Error("Decision must explicitly resolve the proposed and opposing work IDs");
@@ -34088,9 +34937,9 @@ async function activateBacklog(root, id, objective, options) {
 ${(0, import_yaml3.stringify)(doc.data).trimEnd()}
 ---
 ${doc.body}`);
-        if (conflict.path.includes(`${path19.sep}active${path19.sep}`)) {
+        if (conflict.path.includes(`${path22.sep}active${path22.sep}`)) {
           for (const originId of activeSchema.parse(doc.data).backlog) {
-            const originPath = await byId(path19.join(root, "doc", "backlog"), originId);
+            const originPath = await byId(path22.join(root, "doc", "backlog"), originId);
             if (!originPath) throw new Error(`Opposing active work has missing Backlog origin ${originId}`);
             const origin = parseMarkdown(await readText(originPath));
             if (origin.data.status !== "active") continue;
@@ -34106,14 +34955,14 @@ ${origin.body}`);
       }
     }
     const activeId = `ACTIVE-${randomUUID6().toUpperCase()}`;
-    const activePath = path19.join(root, "doc", "active", recordFilename(activeId, data.title, "active"));
+    const activePath = path22.join(root, "doc", "active", recordFilename(activeId, data.title, "active"));
     const activation = activeSchema.parse({ id: activeId, title: data.title, objective: objective.trim(), status: "active", features: data.features, backlog: [id], tasks: options.tasks ?? [], decision: options.decision ?? null });
     writes.set(activePath, renderMarkdown(activation, `# ${data.title}
 
 ${objective.trim()}
 `));
     item.data.status = "active";
-    item.data.activation = path19.relative(root, activePath).split(path19.sep).join("/");
+    item.data.activation = path22.relative(root, activePath).split(path22.sep).join("/");
     const history = Array.isArray(item.data.status_history) ? item.data.status_history : [];
     item.data.status_history = [...history, { from: data.status, to: "active", activation: activeId, ...options.decision ? { decision: options.decision } : {} }];
     writes.set(backlogPath, `---
@@ -34130,21 +34979,23 @@ ${item.body}`);
 var import_yaml4 = __toESM(require_dist(), 1);
 init_fs();
 init_records();
+init_layout();
 init_frontmatter();
 init_schemas3();
 init_indexing();
 init_transactions();
 init_transactions2();
 init_transactions3();
-import path20 from "node:path";
+import path23 from "node:path";
 async function reorderBacklog(root, id, placement) {
+  if (layoutPaths(root).compact) return reorderWorkItems(root, id, placement);
   return withProjectLock(root, async () => {
     await assertNoPendingContext(root);
     await assertNoPendingFilenameOperations(root);
     if (Number(placement.before !== void 0) + Number(placement.after !== void 0) + Number(placement.position !== void 0) !== 1) {
       throw new Error("Choose exactly one of before, after, or position");
     }
-    const queue = (await markdownRecords(path20.join(root, "doc", "backlog"))).filter(({ data }) => !isForwarder(data)).map(({ file: file2, data }) => ({ file: file2, data: backlogSchema.parse(data) })).filter(({ data }) => data.status === "proposed" || data.status === "planned").sort((a, b) => (a.data.queue_position ?? Number.POSITIVE_INFINITY) - (b.data.queue_position ?? Number.POSITIVE_INFINITY) || a.data.id.localeCompare(b.data.id));
+    const queue = (await markdownRecords(path23.join(root, "doc", "backlog"))).filter(({ data }) => !isForwarder(data)).map(({ file: file2, data }) => ({ file: file2, data: backlogSchema.parse(data) })).filter(({ data }) => data.status === "proposed" || data.status === "planned").sort((a, b) => (a.data.queue_position ?? Number.POSITIVE_INFINITY) - (b.data.queue_position ?? Number.POSITIVE_INFINITY) || a.data.id.localeCompare(b.data.id));
     const moving = queue.find((item) => item.data.id === id);
     if (!moving) throw new Error(`Unknown or non-queueable Backlog ID: ${id}`);
     const rest = queue.filter((item) => item !== moving);
@@ -34178,12 +35029,54 @@ ${document.body}`);
     return rest.map((item, offset) => ({ id: item.data.id, queuePosition: offset + 1 }));
   });
 }
+async function reorderWorkItems(root, id, placement) {
+  return withProjectLock(root, async () => {
+    await assertNoPending(root);
+    await assertNoPendingContext(root);
+    await assertNoPendingFilenameOperations(root);
+    if (Number(placement.before !== void 0) + Number(placement.after !== void 0) + Number(placement.position !== void 0) !== 1) throw new Error("Choose exactly one of before, after, or position");
+    const layout = layoutPaths(root);
+    if (!layout.compact) throw new Error("Compact work items require the compact layout");
+    const queue = (await markdownRecords(layout.work)).filter(({ data }) => !isForwarder(data)).map(({ file: file2, data }) => ({ file: file2, data: workItemSchema.parse(data) })).filter(({ data }) => data.status === "proposed" || data.status === "planned").sort((a, b) => (a.data.order ?? Number.POSITIVE_INFINITY) - (b.data.order ?? Number.POSITIVE_INFINITY) || a.data.id.localeCompare(b.data.id));
+    const moving = queue.find((item) => item.data.id === id || item.data.aliases.includes(id));
+    if (!moving) throw new Error(`Unknown or non-queueable work item: ${id}`);
+    const rest = queue.filter((item) => item !== moving);
+    let index;
+    if (placement.before !== void 0 || placement.after !== void 0) {
+      const anchor2 = placement.before ?? placement.after;
+      if (anchor2 === id) throw new Error("A work item cannot be placed relative to itself");
+      const anchorIndex = rest.findIndex((item) => item.data.id === anchor2 || item.data.aliases.includes(anchor2));
+      if (anchorIndex < 0) throw new Error(`Unknown or non-queueable work item anchor: ${anchor2}`);
+      index = anchorIndex + Number(placement.after !== void 0);
+    } else {
+      if (!Number.isSafeInteger(placement.position) || placement.position < 1 || placement.position > queue.length) throw new Error(`Invalid work item position: ${placement.position}`);
+      index = placement.position - 1;
+    }
+    rest.splice(index, 0, moving);
+    const writes = /* @__PURE__ */ new Map();
+    for (const [offset, item] of rest.entries()) {
+      if (item.data.order === offset + 1) continue;
+      const document = parseMarkdown(await readText(item.file));
+      document.data.order = offset + 1;
+      writes.set(item.file, `---
+${(0, import_yaml4.stringify)(document.data).trimEnd()}
+---
+${document.body}`);
+    }
+    if (writes.size) {
+      await writeTransaction(root, writes);
+      await rebuildIndexes(root);
+    }
+    return rest.map((item, offset) => ({ id: item.data.id, queuePosition: offset + 1 }));
+  });
+}
 
 // src/cli/main.ts
 init_transactions2();
 init_order();
 
 // src/migration/filenames.ts
+init_layout();
 var import_yaml5 = __toESM(require_dist(), 1);
 init_fs();
 init_records();
@@ -34192,9 +35085,9 @@ init_indexing();
 init_transactions();
 init_transactions2();
 init_transactions3();
-import path21 from "node:path";
-import { createHash as createHash5 } from "node:crypto";
-import { readdir as readdir13 } from "node:fs/promises";
+import path24 from "node:path";
+import { createHash as createHash7 } from "node:crypto";
+import { readdir as readdir14 } from "node:fs/promises";
 function labelFor(collection, data) {
   const value = collection === "sources" ? data.path : data.title;
   return typeof value === "string" && value.trim() ? value : void 0;
@@ -34202,7 +35095,7 @@ function labelFor(collection, data) {
 function forwarder(id, target) {
   return renderMarkdown({ redirect_id: id, redirect_to: target }, `# Moved
 
-This record moved to [${path21.basename(target)}](./${path21.basename(target)}).
+This record moved to [${path24.basename(target)}](./${path24.basename(target)}).
 `);
 }
 function updateReferences(value, moves) {
@@ -34222,63 +35115,64 @@ async function preview(root, options) {
   const exceptions = [];
   const conflicts = [];
   let selected = false;
-  const inputHash = createHash5("sha256");
+  const inputHash = createHash7("sha256");
   for (const collection of recordCollections) {
-    const directory = path21.join(root, "doc", collection);
+    const directory = path24.join(root, "doc", collection);
     const documents = await markdownRecords(directory);
     for (const { file: file2, data } of documents) {
       if (isForwarder(data)) continue;
-      if (collection === "reports" && path21.dirname(file2) !== directory) {
-        exceptions.push(`${path21.relative(root, file2)}: closure report path is preserved`);
+      if (collection === "reports" && path24.dirname(file2) !== directory) {
+        exceptions.push(`${path24.relative(root, file2)}: closure report path is preserved`);
         continue;
       }
       if (typeof data.id !== "string") {
-        if (collection === "reports") exceptions.push(path21.relative(root, file2));
+        if (collection === "reports") exceptions.push(path24.relative(root, file2));
         continue;
       }
       if (options.id && data.id !== options.id) continue;
       selected = true;
-      inputHash.update(path21.relative(root, file2)).update(await readText(file2));
+      inputHash.update(path24.relative(root, file2)).update(await readText(file2));
       const label = labelFor(collection, data);
       if (!label) {
-        exceptions.push(`${path21.relative(root, file2)}: no readable title or source path`);
+        exceptions.push(`${path24.relative(root, file2)}: no readable title or source path`);
         continue;
       }
-      const idOnly = path21.basename(file2).toLowerCase() === `${data.id}.md`.toLowerCase();
+      const idOnly = path24.basename(file2).toLowerCase() === `${data.id}.md`.toLowerCase();
       if (!idOnly && !options.id) continue;
       let target;
       try {
-        target = path21.join(path21.dirname(file2), recordFilename(data.id, label, collection));
+        target = path24.join(path24.dirname(file2), recordFilename(data.id, label, collection));
       } catch (error62) {
-        exceptions.push(`${path21.relative(root, file2)}: ${error62 instanceof Error ? error62.message : String(error62)}`);
+        exceptions.push(`${path24.relative(root, file2)}: ${error62 instanceof Error ? error62.message : String(error62)}`);
         continue;
       }
       if (target === file2) continue;
-      const occupiedName = (await readdir13(path21.dirname(file2))).find((name) => name.toLowerCase() === path21.basename(target).toLowerCase() && name !== path21.basename(file2));
-      const occupied = occupiedName ? path21.join(path21.dirname(file2), occupiedName) : void 0;
+      const occupiedName = (await readdir14(path24.dirname(file2))).find((name) => name.toLowerCase() === path24.basename(target).toLowerCase() && name !== path24.basename(file2));
+      const occupied = occupiedName ? path24.join(path24.dirname(file2), occupiedName) : void 0;
       if (occupied && occupied !== file2) {
         const found = documents.find((entry) => entry.file === occupied);
         if (!found || !isForwarder(found.data) || found.data.redirect_id !== data.id) {
-          conflicts.push(`${path21.relative(root, file2)}: destination occupied by ${path21.relative(root, occupied)}`);
+          conflicts.push(`${path24.relative(root, file2)}: destination occupied by ${path24.relative(root, occupied)}`);
           continue;
         }
       }
-      moves.push({ id: data.id, collection, from: path21.relative(root, file2), to: path21.relative(root, target) });
+      moves.push({ id: data.id, collection, from: path24.relative(root, file2), to: path24.relative(root, target) });
     }
   }
   if (options.id && !selected) conflicts.push(`Unknown canonical record ID: ${options.id}`);
   moves.sort((a, b) => a.from.localeCompare(b.from));
   const paths2 = new Map(moves.map((move) => [move.from, move.to]));
   if (paths2.size) for (const collection of recordCollections) {
-    for (const record2 of await markdownRecords(path21.join(root, "doc", collection))) {
+    for (const record2 of await markdownRecords(path24.join(root, "doc", collection))) {
       if (isForwarder(record2.data)) continue;
-      if (JSON.stringify(updateReferences(record2.data, paths2)) !== JSON.stringify(record2.data)) referenceUpdates.push(path21.relative(root, record2.file));
+      if (JSON.stringify(updateReferences(record2.data, paths2)) !== JSON.stringify(record2.data)) referenceUpdates.push(path24.relative(root, record2.file));
     }
   }
   const fingerprint = inputHash.update(JSON.stringify({ moves, referenceUpdates, exceptions, conflicts })).digest("hex");
   return { moves, referenceUpdates, exceptions, conflicts, fingerprint };
 }
 async function migrateFilenames(root, options = {}) {
+  if (layoutPaths(root).compact) return compactFilenames(root, options);
   if (!options.apply) return preview(root, options);
   return withProjectLock(root, async () => {
     await assertNoPendingContext(root);
@@ -34293,25 +35187,25 @@ async function migrateFilenames(root, options = {}) {
     const moved = new Map(plan.moves.map((move) => [move.from, move]));
     for (const move of plan.moves) {
       const writes = move.collection === "backlog" || move.collection === "active" ? contextAliases : filenameAliases;
-      const from = path21.join(root, move.from);
-      const to = path21.join(root, move.to);
+      const from = path24.join(root, move.from);
+      const to = path24.join(root, move.to);
       const target = await exists(to) ? await readText(to) : null;
       if (target !== null) {
         const data = parseMarkdown(target).data;
         if (!isForwarder(data) || data.redirect_id !== move.id || data.redirect_to !== move.from) throw new Error(`Migration destination changed: ${move.to}`);
       }
       writes.set(from, forwarder(move.id, move.to));
-      for (const alias of await markdownRecords(path21.dirname(from))) {
+      for (const alias of await markdownRecords(path24.dirname(from))) {
         if (alias.file === from || alias.file === to || alias.data.redirect_id !== move.id || alias.data.redirect_to !== move.from) continue;
         writes.set(alias.file, forwarder(move.id, move.to));
       }
     }
     for (const collection of recordCollections) {
       const writes = collection === "backlog" || collection === "active" ? contextCanonical : filenameCanonical;
-      for (const record2 of await markdownRecords(path21.join(root, "doc", collection))) {
+      for (const record2 of await markdownRecords(path24.join(root, "doc", collection))) {
         if (isForwarder(record2.data)) continue;
-        const relative = path21.relative(root, record2.file);
-        const destination = path21.join(root, moved.get(relative)?.to ?? relative);
+        const relative = path24.relative(root, record2.file);
+        const destination = path24.join(root, moved.get(relative)?.to ?? relative);
         const updated = updateReferences(record2.data, pathMoves);
         if (!moved.has(relative) && JSON.stringify(updated) === JSON.stringify(record2.data)) continue;
         const content = JSON.stringify(updated) === JSON.stringify(record2.data) ? await readText(record2.file) : `---
@@ -34331,11 +35225,65 @@ ${record2.body}`;
     return plan;
   });
 }
+async function compactFilenames(root, options) {
+  const run = async () => {
+    await assertNoPendingContext(root);
+    await assertNoPendingFilenameOperations(root);
+    const p = layoutPaths(root), moves = [], conflicts = [];
+    const documents = (await Promise.all([p.work, p.requirements, p.decisions, p.reports, p.sources].map(markdownRecords))).flat().filter((r) => typeof r.data.id === "string" && !isForwarder(r.data));
+    const names = new Set(documents.map((r) => r.file.toLowerCase()));
+    for (const r of documents) {
+      if (options.id && r.data.id !== options.id && !(Array.isArray(r.data.aliases) && r.data.aliases.includes(options.id))) continue;
+      const slug = readableSlug(String(r.data.path ?? r.data.title ?? r.data.id), "record");
+      if (!options.id && !/--[A-Z0-9-]+\.md$/.test(r.file) && path24.basename(r.file).toLowerCase() !== `${String(r.data.id).toLowerCase()}.md`) continue;
+      let target = path24.join(path24.dirname(r.file), `${slug}.md`);
+      for (let n = 2; names.has(target.toLowerCase()) && target !== r.file; n++) target = path24.join(path24.dirname(r.file), `${slug}-${n}.md`);
+      if (target === r.file) continue;
+      names.add(target.toLowerCase());
+      moves.push({ id: String(r.data.id), collection: r.file.startsWith(p.work + path24.sep) ? "backlog" : r.file.startsWith(p.sources + path24.sep) ? "sources" : "reports", from: path24.relative(root, r.file), to: path24.relative(root, target) });
+    }
+    if (options.id && !documents.some((r) => r.data.id === options.id || Array.isArray(r.data.aliases) && r.data.aliases.includes(options.id))) conflicts.push(`Unknown canonical record ID: ${options.id}`);
+    const paths2 = new Map(moves.map((m) => [m.from, m.to]));
+    const all = [...documents, ...await markdownRecords(path24.join(root, "tasks"))];
+    for (const name of ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md"]) if (await exists(path24.join(root, name))) {
+      const d = parseMarkdown(await readText(path24.join(root, name)));
+      all.push({ file: path24.join(root, name), ...d });
+    }
+    const writes = /* @__PURE__ */ new Map(), referenceUpdates = [];
+    for (const r of all) {
+      const old = path24.relative(root, r.file), next = paths2.get(old) ?? old;
+      const before = await readText(r.file);
+      let after = before;
+      after = after.replace(/\]\(([^\s)]+)\)/g, (match, target) => {
+        if (/^(?:[a-z]+:|#|\/)/i.test(target)) return match;
+        const [value, anchor2] = target.split("#");
+        const key = path24.normalize(path24.join(path24.dirname(old), value));
+        const mapped = paths2.get(key);
+        return mapped ? `](${path24.relative(path24.dirname(next), mapped)}${anchor2 ? `#${anchor2}` : ""})` : match;
+      });
+      for (const [from, to] of paths2) after = after.split(from).join(to);
+      if (after !== before) referenceUpdates.push(old);
+      if (next !== old || after !== before) writes.set(path24.join(root, next), after);
+      if (next !== old) writes.set(r.file, null);
+    }
+    const result2 = { moves, referenceUpdates, exceptions: [], conflicts, fingerprint: createHash7("sha256").update(JSON.stringify([...writes])).digest("hex") };
+    if (options.apply) {
+      if (conflicts.length) throw new Error(conflicts.join("; "));
+      if (writes.size) {
+        await writeFilenameOperation(root, writes);
+        await rebuildIndexes(root);
+      }
+    }
+    return result2;
+  };
+  return options.apply ? withProjectLock(root, run) : run();
+}
 
 // src/cli/main.ts
 init_transactions3();
 
 // src/metrics/index.ts
+init_layout();
 init_fs();
 init_records();
 init_frontmatter();
@@ -34343,17 +35291,17 @@ init_routing();
 init_validation();
 import { randomUUID as randomUUID7 } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { lstat as lstat10, readdir as readdir14 } from "node:fs/promises";
-import path22 from "node:path";
+import { lstat as lstat12, readdir as readdir15 } from "node:fs/promises";
+import path25 from "node:path";
 import { createInterface } from "node:readline";
 var ROUTING_FILES = ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md", "doc/FEATURES.md", "doc/REQUIREMENTS.md", "doc/BACKLOG.md", "doc/ACTIVE.md", "doc/DECISIONS.md", "doc/REPORTS.md"];
 async function canonicalMarkdownFiles(directory) {
-  return (await markdownRecords(directory)).filter(({ data }) => !isForwarder(data)).map(({ file: file2 }) => file2);
+  return (await markdownRecords(directory)).filter(({ data }) => !isForwarder(data)).filter(({ file: file2 }) => path25.basename(file2) !== "INDEX.md").map(({ file: file2 }) => file2);
 }
 async function sizeOf(root, relative) {
-  const target = path22.resolve(root, relative);
+  const target = path25.resolve(root, relative);
   if (!within(root, target)) throw new Error(`Metric path escapes project: ${relative}`);
-  const info = await lstat10(target);
+  const info = await lstat12(target);
   if (!info.isFile()) throw new Error(`Metric path is not a regular file: ${relative}`);
   return info.size;
 }
@@ -34399,37 +35347,38 @@ async function readCodexUsage(file2) {
   return totals;
 }
 async function projectStats(root, feature, level = "feature", usageFile) {
-  const doc = path22.join(root, "doc");
-  const featureDocs = await canonicalMarkdownFiles(path22.join(doc, "features"));
-  const featureFiles = featureDocs.filter((file2) => path22.basename(file2) === "FEATURE.md");
-  const requirements = await canonicalMarkdownFiles(path22.join(doc, "requirements"));
-  const decisions = await canonicalMarkdownFiles(path22.join(doc, "decisions"));
-  const reports = await canonicalMarkdownFiles(path22.join(doc, "reports"));
-  const backlog = await canonicalMarkdownFiles(path22.join(doc, "backlog"));
-  const active = await canonicalMarkdownFiles(path22.join(doc, "active"));
-  const sources = await canonicalMarkdownFiles(path22.join(doc, "sources"));
+  const layout = layoutPaths(root);
+  const doc = layout.docs;
+  const featureDocs = await canonicalMarkdownFiles(path25.join(doc, "features"));
+  const featureFiles = featureDocs.filter((file2) => path25.basename(file2) === layout.featureFile);
+  const requirements = await canonicalMarkdownFiles(path25.join(doc, "requirements"));
+  const decisions = await canonicalMarkdownFiles(path25.join(doc, "decisions"));
+  const reports = await canonicalMarkdownFiles(path25.join(doc, "reports"));
+  const backlog = await canonicalMarkdownFiles(layout.work);
+  const active = layout.compact ? backlog : await canonicalMarkdownFiles(layout.active);
+  const sources = await canonicalMarkdownFiles(layout.sources);
   const selected = feature ? await selectFeatureContext(root, { [feature]: level }) : null;
   const selectedBytes = selected ? (await Promise.all(selected.files.map((file2) => sizeOf(root, file2)))).reduce((a, b) => a + b, 0) : null;
   const routableFiles = [...featureDocs, ...requirements, ...decisions, ...reports];
-  const routableBytes = (await Promise.all(routableFiles.map((file2) => sizeOf(root, path22.relative(root, file2))))).reduce((a, b) => a + b, 0);
-  const routingBytes = (await Promise.all(ROUTING_FILES.map(async (file2) => await exists(path22.join(root, file2)) ? sizeOf(root, file2) : 0))).reduce((a, b) => a + b, 0);
+  const routableBytes = (await Promise.all(routableFiles.map((file2) => sizeOf(root, path25.relative(root, file2))))).reduce((a, b) => a + b, 0);
+  const routingBytes = (await Promise.all((layout.compact ? ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md", ...Object.values(layout.indexes).map((file2) => path25.relative(root, file2))] : ROUTING_FILES).map(async (file2) => await exists(path25.join(root, file2)) ? sizeOf(root, file2) : 0))).reduce((a, b) => a + b, 0);
   const diagnostics = await validateProject(root);
   const errorsByCode = {};
   for (const item of diagnostics) if (item.level === "error") errorsByCode[item.code] = (errorsByCode[item.code] ?? 0) + 1;
-  const countStatus = async (files2, status) => (await Promise.all(files2.map(async (file2) => parseMarkdown(await readText(file2)).data.status === status))).filter(Boolean).length;
+  const countStatus = async (files3, status) => (await Promise.all(files3.map(async (file2) => parseMarkdown(await readText(file2)).data.status === status))).filter(Boolean).length;
   const linkedRequirements = (await Promise.all(requirements.map(async (file2) => Boolean(parseMarkdown(await readText(file2)).data.feature)))).filter(Boolean).length;
   const linkedReports = (await Promise.all(reports.map(async (file2) => {
     const features = parseMarkdown(await readText(file2)).data.features;
     return Array.isArray(features) && features.length > 0;
   }))).filter(Boolean).length;
-  const closureReports = (await canonicalMarkdownFiles(path22.join(doc, "reports", "closures"))).length;
+  const closureReports = (await canonicalMarkdownFiles(path25.join(doc, "reports", "closures"))).length;
   const sourcesNeedingReview = (await Promise.all(sources.map(async (file2) => parseMarkdown(await readText(file2)).data.disposition === "review"))).filter(Boolean).length;
   return {
     schemaVersion: 1,
     kind: "deep-context-stats",
     generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
     projectRoot: root,
-    documents: { features: featureFiles.length, requirements: requirements.length, requirementsWithFeature: linkedRequirements, decisions: decisions.length, reports: reports.length, reportsWithFeature: linkedReports, closureReports, backlog: backlog.length, active: await countStatus(active, "active"), completedObjectives: await countStatus(active, "done"), sourcesNeedingReview },
+    documents: { features: featureFiles.length, requirements: requirements.length, requirementsWithFeature: linkedRequirements, decisions: decisions.length, reports: reports.length, reportsWithFeature: linkedReports, closureReports, workItems: backlog.length, backlog: layout.compact ? await countStatus(backlog, "proposed") + await countStatus(backlog, "planned") : backlog.length, active: await countStatus(active, "active"), completedObjectives: await countStatus(active, "done"), sourcesNeedingReview },
     health: { valid: diagnostics.every((item) => item.level !== "error"), errorCount: Object.values(errorsByCode).reduce((a, b) => a + b, 0), errorsByCode },
     context: { feature: feature ?? null, level: feature ? level : null, selectedFiles: selected?.files ?? [], selectedBytes, estimatedSelectedTokens: selectedBytes === null ? null : estimateTokens(selectedBytes), routableCorpusFiles: routableFiles.length, routableCorpusBytes: routableBytes, routingBytes, estimatedRoutingTokens: estimateTokens(routingBytes), selectionReductionPercent: selectedBytes === null || !routableBytes ? null : Math.round((1 - (selectedBytes + routingBytes) / (routableBytes + routingBytes)) * 1e3) / 10 },
     usage: usageFile ? await readCodexUsage(usageFile) : null,
@@ -34454,18 +35403,18 @@ async function compareUsage(baselineFile, deepFile, baselineScore, deepScore) {
   };
 }
 async function recordMetrics(root, report) {
-  const target = path22.join(root, ".local", "metrics", `${(/* @__PURE__ */ new Date()).toISOString().replaceAll(":", "-")}-${randomUUID7()}.json`);
+  const target = path25.join(root, ".local", "metrics", `${(/* @__PURE__ */ new Date()).toISOString().replaceAll(":", "-")}-${randomUUID7()}.json`);
   await atomicWrite(target, `${JSON.stringify(report, null, 2)}
 `);
   return target;
 }
 async function metricsHistory(root, limit = 20) {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1e3) throw new Error("History limit must be an integer from 1 to 1000");
-  const directory = path22.join(root, ".local", "metrics");
+  const directory = path25.join(root, ".local", "metrics");
   if (!await exists(directory)) return [];
-  const names = (await readdir14(directory)).filter((name) => name.endsWith(".json")).sort().reverse().slice(0, limit);
+  const names = (await readdir15(directory)).filter((name) => name.endsWith(".json")).sort().reverse().slice(0, limit);
   return Promise.all(names.map(async (name) => {
-    const document = JSON.parse(await readText(path22.join(directory, name)));
+    const document = JSON.parse(await readText(path25.join(directory, name)));
     if (document.schemaVersion !== 1 || !["deep-context-stats", "deep-context-comparison"].includes(String(document.kind)) || typeof document.generatedAt !== "string") throw new Error(`Invalid metrics snapshot: ${name}`);
     if (document.kind === "deep-context-stats") {
       const context = document.context;
@@ -34492,31 +35441,40 @@ function output2(value, json2) {
 }
 var program2 = new Command();
 program2.name("deep-context").description("Durable filesystem context routing for Codex").version("0.1.0").showHelpAfterError();
-program2.command("setup").requiredOption("--home <path>", "Deep Context project-control home").option("--agents <path>", "AGENTS.md to update", path23.join(os2.homedir(), ".codex", "AGENTS.md")).action(async ({ home, agents }) => {
-  const resolvedHome = path23.resolve(home);
+program2.command("setup").requiredOption("--home <path>", "Deep Context project-control home").option("--agents <path>", "AGENTS.md to update", path26.join(os2.homedir(), ".codex", "AGENTS.md")).action(async ({ home, agents }) => {
+  const resolvedHome = path26.resolve(home);
   await ensureDir(resolvedHome);
   await saveHome(resolvedHome);
-  await updateAgentsBlock(path23.resolve(agents));
+  await updateAgentsBlock(path26.resolve(agents));
   console.log(`Configured Deep Context home: ${resolvedHome}`);
 });
 program2.command("init").option("--empty", "Create an empty project").option("--repo <path>", "Bootstrap from a Git repository").option("--name <name>", "Project folder name").option("--context <path>", "Explicit context directory; install repository startup routing").action(async ({ empty, repo, name, context }) => {
   if (Boolean(empty) === Boolean(repo)) throw new CommanderError(2, "usage", "Choose exactly one of --empty or --repo <path>");
-  const repository = repo ? path23.resolve(repo) : void 0;
-  const inferred = name ?? (repository ? path23.basename(repository) : void 0);
+  const repository = repo ? path26.resolve(repo) : void 0;
+  const inferred = name ?? (repository ? path26.basename(repository) : void 0);
   if (!inferred) throw new CommanderError(2, "usage", "--name is required for --empty");
-  const contextPath = context ? path23.resolve(context) : void 0;
-  const root = await initProject(repository ? path23.dirname(repository) : contextPath ? path23.dirname(contextPath) : await loadHome(), { name: normalizeName(inferred), repository, contextPath, register: true });
+  const contextPath = context ? path26.resolve(context) : void 0;
+  const root = await initProject(repository ? path26.dirname(repository) : contextPath ? path26.dirname(contextPath) : await loadHome(), { name: normalizeName(inferred), repository, contextPath, register: true });
   console.log(`Initialized Deep Context project: ${root}`);
   if (repository) console.log("Repository evidence was inventoried. Agent interpretation remains required for architecture, features, and atomic requirements.");
 });
 program2.command("migrate-project").argument("<old-context-path>").requiredOption("--repo <path>").action(async (oldContextPath, { repo }) => {
-  const result2 = await migrateProject(path23.resolve(oldContextPath), path23.resolve(repo));
+  const result2 = await migrateProject(path26.resolve(oldContextPath), path26.resolve(repo));
   console.log(`Migrated project: ${result2.projectRoot}
 Recoverable backup: ${result2.backup}`);
 });
-program2.command("capture-backlog").requiredOption("--title <title>").requiredOption("--pitch <pitch>").requiredOption("--provenance <source>").option("--project <path>").option("--feature <name...>").option("--related <id...>").option("--conflict <id...>").action(async (options) => console.log(await captureBacklog(await projectFor(options), { title: options.title, pitch: options.pitch, provenance: options.provenance, features: options.feature, related: options.related, conflicts: options.conflict })));
-program2.command("activate-backlog").argument("<id>").requiredOption("--objective <text>").option("--project <path>").option("--task <id...>").option("--decision <path>").action(async (id, options) => console.log(await activateBacklog(await projectFor(options), id, options.objective, { tasks: options.task, decision: options.decision })));
-program2.command("reorder-backlog").argument("<id>").option("--before <id>").option("--after <id>").option("--position <number>").option("--project <path>").option("--json").action(async (id, options) => output2(await reorderBacklog(await projectFor(options), id, { before: options.before, after: options.after, position: options.position === void 0 ? void 0 : Number(options.position) }), options.json));
+program2.command("migrate-layout").option("--project <path>").option("--apply").option("--json").action(async (options) => output2(await migrateLayout(await projectFor(options), { apply: Boolean(options.apply) }), options.json));
+program2.command("repair-layout").requiredOption("--project <path>").action(async (options) => {
+  await repairLayout(path26.resolve(options.project));
+  console.log("Layout recovery complete");
+});
+program2.command("set-work-status").argument("<id>").requiredOption("--status <status>").option("--project <path>").option("--outcome <text>").option("--open-gate <text...>").option("--merged-into <id>").action(async (id, options) => {
+  if (!["planned", "blocked", "merged", "done"].includes(options.status)) throw new Error("Status must be planned, blocked, merged or done; use activate-work for execution");
+  console.log(await setWorkItemStatus(await projectFor(options), id, options.status, { outcome: options.outcome, openGates: options.openGate, mergedInto: options.mergedInto }));
+});
+program2.command("capture-work").alias("capture-backlog").requiredOption("--title <title>").requiredOption("--pitch <pitch>").requiredOption("--provenance <source>").option("--project <path>").option("--feature <name...>").option("--related <id...>").option("--conflict <id...>").action(async (options) => console.log(await captureBacklog(await projectFor(options), { title: options.title, pitch: options.pitch, provenance: options.provenance, features: options.feature, related: options.related, conflicts: options.conflict })));
+program2.command("activate-work").alias("activate-backlog").argument("<id>").requiredOption("--objective <text>").option("--project <path>").option("--task <id...>").option("--decision <path>").action(async (id, options) => console.log(await activateBacklog(await projectFor(options), id, options.objective, { tasks: options.task, decision: options.decision })));
+program2.command("reorder-work").alias("reorder-backlog").argument("<id>").option("--before <id>").option("--after <id>").option("--position <number>").option("--project <path>").option("--json").action(async (id, options) => output2(await reorderBacklog(await projectFor(options), id, { before: options.before, after: options.after, position: options.position === void 0 ? void 0 : Number(options.position) }), options.json));
 program2.command("reorder-task").argument("<task-uuid>").option("--before <task-uuid>").option("--after <task-uuid>").option("--position <number>").option("--project <path>").option("--json").action(async (id, options) => output2(await reorderMemoryTask(await projectFor(options), id, { before: options.before, after: options.after, position: options.position === void 0 ? void 0 : Number(options.position) }), options.json));
 program2.command("repair-context").option("--project <path>").action(async (options) => output2(await repairContextOperations(await projectFor(options))));
 program2.command("migrate-filenames").option("--apply", "Apply the previewed canonical file moves").option("--project <path>").option("--json").action(async (options) => output2(await migrateFilenames(await projectFor(options), { apply: Boolean(options.apply) }), options.json));
@@ -34541,7 +35499,7 @@ program2.command("stats").description("Report local documentation health and con
   const root = await projectFor(options);
   if (!CONTEXT_LEVELS.includes(options.level) || options.level === "none") throw new Error("--level must be contract, feature, or deep");
   if (options.level !== "feature" && !options.feature) throw new Error("--level requires --feature");
-  const report = await projectStats(root, options.feature, options.level, options.usageJsonl ? path23.resolve(options.usageJsonl) : void 0);
+  const report = await projectStats(root, options.feature, options.level, options.usageJsonl ? path26.resolve(options.usageJsonl) : void 0);
   const recordedAt = options.record ? await recordMetrics(root, report) : null;
   if (options.json) output2({ ...report, recordedAt }, true);
   else {
@@ -34555,7 +35513,7 @@ program2.command("stats").description("Report local documentation health and con
   }
 });
 program2.command("compare-usage").description("Compare two controlled Codex JSONL runs with evaluator-provided quality scores").requiredOption("--baseline <path>").requiredOption("--deep-context <path>").requiredOption("--baseline-score <number>", "Score from 0 to 1").requiredOption("--deep-score <number>", "Score from 0 to 1").option("--project <path>").option("--record", "Save this summary under .local/metrics").option("--json", "Machine-readable summary").action(async (options) => {
-  const report = await compareUsage(path23.resolve(options.baseline), path23.resolve(options.deepContext), Number(options.baselineScore), Number(options.deepScore));
+  const report = await compareUsage(path26.resolve(options.baseline), path26.resolve(options.deepContext), Number(options.baselineScore), Number(options.deepScore));
   const recordedAt = options.record ? await recordMetrics(await projectFor(options), report) : null;
   if (options.json) output2({ ...report, recordedAt }, true);
   else {
@@ -34595,9 +35553,9 @@ program2.command("register-project").argument("<path>").action(async (target) =>
   await registerProject(root);
   console.log(`Registered project: ${root}`);
 });
-program2.command("start-task").requiredOption("--description <text>").option("--name <title>").option("--context-file <path>", "JSON object with relevant initial task context").option("--predecessor-task-id <id>", "Link a new task to a closed predecessor").option("--project <path>").option("--chat-id <id>").option("--feature <name>").option("--json").action(async (options) => {
-  const initialContext = options.contextFile ? JSON.parse(await readText(path23.resolve(options.contextFile))) : void 0;
-  output2(await startMemoryTask(await projectFor(options), { ...options, ...identity(options), initialContext }), options.json);
+program2.command("start-task").requiredOption("--description <text>").option("--name <title>").option("--context-file <path>", "JSON object with relevant initial task context").option("--predecessor-task-id <id>", "Link a new task to a closed predecessor").option("--work-item <id...>", "Link canonical work IDs or aliases").option("--project <path>").option("--chat-id <id>").option("--feature <name>").option("--json").action(async (options) => {
+  const initialContext = options.contextFile ? JSON.parse(await readText(path26.resolve(options.contextFile))) : void 0;
+  output2(await startMemoryTask(await projectFor(options), { ...options, ...identity(options), workItems: options.workItem, initialContext }), options.json);
 });
 program2.command("list-tasks").option("--project <path>").option("--json").action(async (options) => output2(await listMemoryTasks(await projectFor(options)), options.json));
 program2.command("resolve-task").option("--task <id-or-path>").option("--project <path>").option("--chat-id <id>").option("--json").option("--allow-unbound", "Return structured unbound state when this chat has no task").option("--binding-id <id>").action(async (options) => {
@@ -34605,9 +35563,9 @@ program2.command("resolve-task").option("--task <id-or-path>").option("--project
   const result2 = options.allowUnbound ? await resolveMemoryTask(root, options.task, { ...identity(options), allowUnbound: true }) : await resolveMemoryTask(root, options.task, identity(options));
   output2(result2, options.json);
 });
-program2.command("resume-task").argument("<task>").option("--project <path>").option("--chat-id <id>").option("--binding-id <id>").option("--expected-revision <number>").option("--takeover").option("--json").action(async (task, options) => output2(await resumeMemoryTask(await projectFor(options), task, { ...identity(options), takeover: options.takeover }), options.json));
+program2.command("resume-task").argument("<task>").option("--work-item <id...>", "Link canonical work IDs or aliases").option("--project <path>").option("--chat-id <id>").option("--binding-id <id>").option("--expected-revision <number>").option("--takeover").option("--json").action(async (task, options) => output2(await resumeMemoryTask(await projectFor(options), task, { ...identity(options), takeover: options.takeover, workItems: options.workItem }), options.json));
 program2.command("save-task").argument("<task>").option("--project <path>").option("--chat-id <id>").option("--binding-id <id>").option("--expected-revision <number>").option("--next-action <text>").option("--note <text>").option("--checkpoint-file <path>", "JSON object with completedWork, decisions, blockers, openQuestions and nextAction strings").option("--release", "Checkpoint and release this chat's task ownership").option("--json").action(async (task, options) => {
-  const checkpoint = options.checkpointFile ? JSON.parse(await readText(path23.resolve(options.checkpointFile))) : void 0;
+  const checkpoint = options.checkpointFile ? JSON.parse(await readText(path26.resolve(options.checkpointFile))) : void 0;
   output2(await saveMemoryTask(await projectFor(options), task, { ...options, ...identity(options), checkpoint }), options.json);
 });
 program2.command("attach-source").argument("<task>").requiredOption("--source-mode <mode>", "read-only, isolated, or existing").option("--source-path <path>").option("--source-rules-reviewed").option("--project <path>").option("--chat-id <id>").option("--binding-id <id>").option("--expected-revision <number>").option("--json").action(async (task, options) => output2(await attachMemorySource(await projectFor(options), task, { ...options, ...identity(options) }), options.json));

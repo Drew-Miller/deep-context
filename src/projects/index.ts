@@ -1,3 +1,5 @@
+import { layoutPaths } from "../core/layout.js";
+import { migrateLayout } from "../migration/layout.js";
 import { randomUUID } from "node:crypto";
 import { cp, lstat, readlink, realpath, readdir, rename, rm, rmdir, symlink } from "node:fs/promises";
 import path from "node:path";
@@ -6,7 +8,7 @@ import { projectRegistryPath, updateAgentsBlock, updateTaskRouting } from "../co
 import { git, isGitRepository } from "../core/git.js";
 import type { ProjectState, SourceRecord } from "../core/types.js";
 import { parseMarkdown, renderMarkdown } from "../frontmatter/index.js";
-import { isForwarder, markdownRecords, recordFilename } from "../core/records.js";
+import { isForwarder, markdownRecords, recordFilename, newRecordPath } from "../core/records.js";
 import { inventoryRepository } from "../importing/index.js";
 import { rebuildIndexes } from "../indexing/index.js";
 import { architectureTemplate, contextMap, projectAgents, projectContextAgent, projectOverview } from "./templateFiles.js";
@@ -20,7 +22,7 @@ export function normalizeName(value: string): string {
   return normalized;
 }
 
-type ProjectIdentity = ProjectState & { projectId?: string };
+type ProjectIdentity = ProjectState & { projectId?: string; repositoryCommonDir?: string };
 type ProjectRegistry = { version: 1; projects: Array<{ projectRoot: string; repositoryPath?: string; repositoryCommonDir?: string; projectId?: string }> };
 
 export async function machineStatePath(projectRoot: string): Promise<string> {
@@ -44,9 +46,8 @@ export async function initProject(home: string, options: { name: string; reposit
     if (previous?.name !== name || previousRoot !== requestedRoot) throw new Error(`Conflicting project identity at ${projectRoot}`);
   }
 
-  for (const directory of ["doc/features", "doc/requirements", "doc/backlog", "doc/active", "doc/decisions", "doc/sources", "doc/reports", "tasks", ".local"]) {
-    await ensureDir(path.join(projectRoot, directory));
-  }
+  const layout = layoutPaths(projectRoot);
+  for (const directory of [layout.features, layout.requirements, layout.backlog, layout.active, layout.decisions, layout.sources, layout.reports, path.join(projectRoot, "tasks"), path.join(projectRoot, ".local")]) await ensureDir(directory);
   projectRoot = await realpath(projectRoot);
   statePath = await machineStatePath(projectRoot);
 
@@ -59,13 +60,13 @@ export async function initProject(home: string, options: { name: string; reposit
     const resolvedRepository = await realpath(repositoryPath);
     if (linkedRepository && linkedRepository !== resolvedRepository) throw new Error(`Conflicting repository attachment at ${projectRoot}`);
     if (previous?.repositoryPath && await realpath(previous.repositoryPath) !== resolvedRepository) throw new Error(`Conflicting repository attachment at ${projectRoot}`);
-    if (!linkedRepository) await symlink(resolvedRepository, link);
+    if (!linkedRepository && !layout.compact) await symlink(resolvedRepository, link);
     if (options.installRouting !== false) await updateAgentsBlock(path.join(resolvedRepository, "AGENTS.md"), projectRoot);
     if (isContained(projectRoot, resolvedRepository)) await ignorePrivateContext(resolvedRepository);
     const inventory = await inventoryRepository(resolvedRepository, { excludedRoots: [projectRoot] });
     imported = { head: inventory.head, branch: inventory.branch, dirty: inventory.dirty, capturedAt: new Date().toISOString() };
     const sourceFiles = new Map<string, string>();
-    for (const file of await markdownRecords(path.join(projectRoot, "doc", "sources"))) {
+    for (const file of await markdownRecords(layoutPaths(projectRoot).sources)) {
       if (isForwarder(file.data) || typeof file.data.id !== "string") continue;
       if (sourceFiles.has(file.data.id)) throw new Error(`Duplicate source record ID ${file.data.id}`);
       sourceFiles.set(file.data.id, file.file);
@@ -80,11 +81,11 @@ export async function initProject(home: string, options: { name: string; reposit
   await updateTaskRouting(path.join(projectRoot, "AGENTS.md"));
   await createExclusive(path.join(projectRoot, "CONTEXT_MAP.md"), contextMap(name));
   const projectId = await ensureCanonicalProjectId(path.join(projectRoot, "PROJECT.md"), name, repositoryPath, previous?.projectId ?? randomUUID());
-  await createExclusive(path.join(projectRoot, "doc", "ARCHITECTURE.md"), architectureTemplate);
+  await createExclusive(layout.architecture, architectureTemplate);
   await removeLegacyAgent(projectRoot);
 
   const now = new Date().toISOString();
-  const state: ProjectIdentity = { schemaVersion: 1, name, projectRoot, repositoryPath, projectId, createdAt: previous?.createdAt ?? now, updatedAt: now, import: imported ?? previous?.import };
+  const state: ProjectIdentity = { ...previous, ...(layout.compact ? { layout: "compact-v1" as const, legacyCliCompatible: false } : {}), schemaVersion: 1, name, projectRoot, repositoryPath, repositoryCommonDir: repositoryPath ? await commonGitDirectory(repositoryPath) : undefined, projectId, createdAt: previous?.createdAt ?? now, updatedAt: now, import: imported ?? previous?.import };
   await atomicWrite(statePath, `${JSON.stringify(state, null, 2)}\n`);
   await rebuildIndexes(projectRoot);
   if (options.register === true) await registerProject(projectRoot);
@@ -113,6 +114,7 @@ export async function migrateProject(oldPath: string, repository: string): Promi
     if (await exists(oldMachine)) await rename(oldMachine, path.join(destination, ".local"));
     const statePath = path.join(destination, ".local", "state.json");
     await atomicWrite(statePath, `${JSON.stringify({ ...oldState, projectRoot: destination, repositoryPath: source }, null, 2)}\n`);
+    if (!layoutPaths(destination).compact) {
     await migrateShelf(destination);
     await migrateClosureArchives(destination);
     await rewriteMovedReferences(destination);
@@ -127,6 +129,8 @@ export async function migrateProject(oldPath: string, repository: string): Promi
     nextMap = nextMap.replace("`BACKLOG.md`,", "`BACKLOG.md`, `ACTIVE.md`,");
     nextMap = nextMap.replace(/^\| `doc\/reports\/closures\/\*`[^\n]*$/m, "| `doc/reports/closures/*.md` | Concise durable closure conclusions | Canonical |\n| `.local/archives/*` | Raw closed task and chat memory | Local archive |");
     await atomicWrite(mapPath, nextMap + "\n\n## In-repository storage\n\n`tasks/` and `.local/` are local-only. All Git worktrees resolve this primary checkout's context. Raw closed memory is retained in `.local/archives/`; concise closure conclusions belong in `doc/reports/closures/*.md`. Unfinished Backlog writes are journaled under `.local/context-operations/` and require repair-context.\n");
+    await migrateLayout(destination, { apply: true });
+    }
     await initProject(path.dirname(destination), { name: oldState.name, repository: source, contextPath: destination, installRouting: false });
     updatedIgnore = await readText(sourceIgnorePath);
     await requireValidMigration(destination);
@@ -275,7 +279,8 @@ export async function resolveExplicitProject(candidate: string): Promise<string>
   const linked = await repositoryLink(path.join(resolved, "repo"));
   if (state.repositoryPath) {
     const repository = await realpath(state.repositoryPath);
-    if (linked !== repository) throw new Error(`Invalid repository attachment at ${candidate}`);
+    if (state.repositoryCommonDir && await commonGitDirectory(repository) !== state.repositoryCommonDir) throw new Error("Source repository identity changed");
+    if ((!layoutPaths(resolved).compact && linked !== repository) || (linked && linked !== repository)) throw new Error(`Invalid repository attachment at ${candidate}`);
   } else if (linked) {
     throw new Error(`Invalid repository attachment at ${candidate}`);
   }
@@ -322,7 +327,8 @@ async function ignorePrivateContext(repository: string): Promise<void> {
 }
 
 async function writeSourceRecord(projectRoot: string, record: SourceRecord, sourceFiles: Map<string, string>): Promise<void> {
-  const target = sourceFiles.get(record.id) ?? path.join(projectRoot, "doc", "sources", recordFilename(record.id, record.path, "source"));
+  const layout = layoutPaths(projectRoot);
+  const target = sourceFiles.get(record.id) ?? (layout.compact ? await newRecordPath(layout.sources, record.id, record.path, "source") : path.join(layout.sources, recordFilename(record.id, record.path, "source")));
   sourceFiles.set(record.id, target);
   let body: string | undefined;
   if (await exists(target)) {
@@ -354,7 +360,7 @@ async function writeSourceRecord(projectRoot: string, record: SourceRecord, sour
       } as SourceRecord;
     }
   }
-  const defaultBody = `# ${record.path}\n\nThis record preserves import provenance. Read the source body through \`repo/${record.path}\` only when its routing metadata makes it relevant.\n`;
+  const defaultBody = `# ${record.path}\n\nThis record preserves import provenance. Read source-relative path \`${record.path}\` from the repository recorded in .local/state.json only when its routing metadata makes it relevant.\n`;
   const contents = body === undefined
     ? renderMarkdown(record as unknown as Record<string, unknown>, defaultBody)
     : `---\n${stringify(record).trimEnd()}\n---\n${body}`;
@@ -362,7 +368,7 @@ async function writeSourceRecord(projectRoot: string, record: SourceRecord, sour
 }
 
 async function markAbsentSourceRecords(projectRoot: string, inventoriedPaths: Set<string>): Promise<void> {
-  const sourceRoot = path.join(projectRoot, "doc", "sources");
+  const sourceRoot = layoutPaths(projectRoot).sources;
   for (const entry of await readdir(sourceRoot, { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
     const target = path.join(sourceRoot, entry.name);

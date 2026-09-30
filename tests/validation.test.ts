@@ -17,13 +17,13 @@ describe("reference validation", () => {
     const home = await mkdtemp(path.join(os.tmpdir(), "deep-context-validation-"));
     cleanup.push(home);
     const root = await initProject(home, { name: "References" });
-    const featureRoot = path.join(root, "doc", "features", "one");
+    const featureRoot = path.join(root, "docs", "features", "one");
     await mkdir(featureRoot, { recursive: true });
-    await writeFile(path.join(featureRoot, "FEATURE.md"), "---\nname: one\ndescription: One\nstatus: active\nowns: []\ntokens: []\ncontracts: [doc/features/one/MISSING.md]\nrequirements: [REQ-MISSING]\ndepends_on: { absent: contract }\norigin: confirmed\n---\n\n# One\n");
-    await writeFile(path.join(root, "doc", "requirements", "REQ-ONE.md"), "---\nid: REQ-ONE\ntitle: One\nstatus: active\nfeature: absent\norigin: confirmed\nsource: repo/MISSING.md#section\n---\n\n# One\n");
-    await mkdir(path.join(root, "doc", "sources"), { recursive: true });
-    await writeFile(path.join(root, "doc", "sources", "SRC-ONE.md"), "---\nid: SRC-ONE\npath: retired.md\nkind: text\ntracking: not-applicable\ndisposition: imported\nreason: test\norigin: confirmed\ntargets: [doc/MISSING.md]\n---\n\n# Source\n");
-    await writeFile(path.join(root, "doc", "decisions", "unindexed.md"), "# Missing decision metadata\n");
+    await writeFile(path.join(featureRoot, "overview.md"), "---\nname: one\ndescription: One\nstatus: active\nowns: []\ntokens: []\ncontracts: [docs/features/one/MISSING.md]\nrequirements: [REQ-MISSING]\ndepends_on: { absent: contract }\norigin: confirmed\n---\n\n# One\n");
+    await writeFile(path.join(root, "docs", "requirements", "REQ-ONE.md"), "---\nid: REQ-ONE\ntitle: One\nstatus: active\nfeature: absent\norigin: confirmed\nsource: repo/MISSING.md#section\n---\n\n# One\n");
+    await mkdir(path.join(root, "sources", "records"), { recursive: true });
+    await writeFile(path.join(root, "sources", "records", "SRC-ONE.md"), "---\nid: SRC-ONE\npath: retired.md\nkind: text\ntracking: not-applicable\ndisposition: imported\nreason: test\norigin: confirmed\ntargets: [doc/MISSING.md]\n---\n\n# Source\n");
+    await writeFile(path.join(root, "docs", "decisions", "unindexed.md"), "# Missing decision metadata\n");
     await rebuildIndexes(root);
     const diagnostics = await validateProject(root);
     expect(diagnostics.filter((item) => item.code === "broken-reference")).toHaveLength(4);
@@ -44,7 +44,7 @@ describe("reference validation", () => {
     await exec("git", ["-C", repository, "commit", "-m", "initial"]);
     const root = await initProject(home, { name: "Inventory", repository });
     expect(await validateProject(root)).toEqual([]);
-    const sourceDirectory = path.join(root, "doc", "sources");
+    const sourceDirectory = path.join(root, "sources", "records");
     const sourceFiles = await import("node:fs/promises").then(({ readdir }) => readdir(sourceDirectory));
     const sourceRecords = await Promise.all(sourceFiles.map(async (file) => ({ file, contents: await readFile(path.join(sourceDirectory, file), "utf8") })));
     const sourceFile = path.join(sourceDirectory, sourceRecords.find((record) => record.contents.includes("path: README.md"))!.file);

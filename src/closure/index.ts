@@ -8,7 +8,8 @@ import { machineStatePath } from "../projects/index.js";
 import { rebuildIndexes } from "../indexing/index.js";
 import type { ProjectState } from "../core/types.js";
 import { normalizeTaskName } from "../core/names.js";
-import { recordFilename } from "../core/records.js";
+import { newRecordPath, recordFilename } from "../core/records.js";
+import { layoutPaths } from "../core/layout.js";
 import { assertMemoryOwner, resolveMemoryTask, withProjectLock, rebuildChatIndex } from "../tasks/memory.js";
 import { sourceSnapshot } from "../tasks/source.js";
 import { recoverClosure, stageClosure } from "./recovery.js";
@@ -71,8 +72,9 @@ async function evidence(projectRoot: string, taskRoot: string): Promise<{ finger
     summary = `Base: ${base}\nHEAD: ${head}\nCommitted diff bytes: ${Buffer.byteLength(committed)}\nWorking diff bytes: ${Buffer.byteLength(working)}\nStaged diff bytes: ${Buffer.byteLength(staged)}\nUntracked files: ${untracked.length}`;
   }
   const taskFiles = await walkFiles(taskRoot, (relative) => relative === "worktree" || relative.startsWith(`worktree${path.sep}`) || relative === "CLOSURE_REVIEW.md");
-  const contextFiles = await walkFiles(path.join(projectRoot, "doc"), (relative) => relative.startsWith(`reports${path.sep}closures${path.sep}`));
-  const authorityFiles = ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md", "START_HERE.md", "docs/plan/TASKS.md", "docs/plan/STATUS.json"]
+  const layout = layoutPaths(projectRoot);
+  const contextFiles = await walkFiles(layout.docs, (relative) => relative.startsWith(`reports${path.sep}closures${path.sep}`));
+  const authorityFiles = ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md"]
     .map((relative) => path.join(projectRoot, relative));
   for (const file of [...taskFiles, ...contextFiles, ...authorityFiles]) {
     if (await exists(file)) hash.update(path.relative(projectRoot, file)).update(await readText(file));
@@ -108,7 +110,8 @@ async function prepare(projectRoot: string, taskName: string, options: ClosureOp
     updated_at: new Date().toISOString(),
   }, `# Closure Review\n\n## Evidence\n\n${current.summary}\n\n## Drift Findings\n\n- Pending Project Context review.\n\n## Durable Knowledge Classification\n\n- Review TASK_STATE.md and WORKLOG.md; promote architecture, contracts, requirements, decisions, or future intent.\n\n## Unresolved Questions\n\n- Closure review has not been completed.\n\n## Finalization Instructions\n\nAn agent must review the evidence, update durable context, list promotion references, set \`findings_resolved: true\`, identify itself in \`reviewer\`, set \`status: approved\`, and rerun \`close-task\` if evidence changes.\n`);
   const target = path.join(taskRoot, "CLOSURE_REVIEW.md");
-  const instructions = "## Classification Record\n\nAdd one `knowledge_review` entry for every task-local Markdown note: `{ path, classification: transient|promoted, promotion_references: [] }`. Promoted paths must exist under `doc/` or at `PROJECT.md`; no path under `tasks/` counts as durable. Empty `unresolved_findings` is required. Classify a note as transient only after inspecting it and confirming no knowledge needed by future work remains there.\n\n";
+  const durableRoot = layoutPaths(projectRoot).compact ? "docs/ or work/items/" : "doc/";
+  const instructions = `## Classification Record\n\nAdd one \`knowledge_review\` entry for every task-local Markdown note: \`{ path, classification: transient|promoted, promotion_references: [] }\`. Promoted paths must exist under ${durableRoot} or at \`PROJECT.md\`; no path under \`tasks/\` counts as durable. Empty \`unresolved_findings\` is required. Classify a note as transient only after inspecting it and confirming no knowledge needed by future work remains there.\n\n`;
   await atomicWrite(target, review.replace("## Finalization Instructions\n", `${instructions}## Finalization Instructions\n`));
   return target;
 }
@@ -168,11 +171,14 @@ async function finalize(projectRoot: string, taskName: string, options: ClosureO
   }
   for (const reference of promotions) {
     const target = path.resolve(projectRoot, reference);
-    const durableRoot = path.join(projectRoot, "doc");
-    if (!(within(durableRoot, target) && target !== durableRoot) && target !== path.join(projectRoot, "PROJECT.md")) throw new Error(`Promotion must point to durable project context: ${reference}`);
+    const layout = layoutPaths(projectRoot);
+    const roots = layout.compact ? [layout.docs, layout.work, layout.sources] : [layout.docs];
+    const allowed = roots.some(root => within(root, target) && target !== root) && path.basename(target) !== "INDEX.md";
+    if (!allowed && target !== path.join(projectRoot, "PROJECT.md")) throw new Error(`Promotion must point to durable project context: ${reference}`);
     if (!(await exists(target))) throw new Error(`Missing promotion reference: ${reference}`);
     const actual = await realpath(target);
-    if (!within(await realpath(durableRoot), actual) && actual !== await realpath(path.join(projectRoot, "PROJECT.md"))) throw new Error(`Promotion escapes durable context: ${reference}`);
+    const realRoots = await Promise.all(roots.map(root => realpath(root)));
+    if (!realRoots.some(root => within(root, actual)) && actual !== await realpath(path.join(projectRoot, "PROJECT.md"))) throw new Error(`Promotion escapes durable context: ${reference}`);
   }
   const current = await evidence(projectRoot, taskRoot);
   if (review.data.evidence_fingerprint !== current.fingerprint) throw new Error("Closure evidence changed after review; run close-task and review again");
@@ -200,7 +206,9 @@ async function finalize(projectRoot: string, taskName: string, options: ClosureO
     ? manifest.features as Record<string, unknown> : {};
   const features = Object.entries(levels).filter(([, level]) => level === "feature" || level === "deep").map(([feature]) => feature).sort();
   const reportId = `CLOSURE-${archiveName.toUpperCase()}`;
-  const reportPath = path.join(projectRoot, "doc", "reports", "closures", recordFilename(reportId, `Closure of ${name}`, "closure"));
+  const layout = layoutPaths(projectRoot);
+  const reportDirectory = path.join(layout.reports, "closures");
+  const reportPath = layout.compact ? await newRecordPath(reportDirectory, reportId, `Closure of ${name}`, "closure") : path.join(reportDirectory, recordFilename(reportId, `Closure of ${name}`, "closure"));
   await atomicWrite(reportPath, renderMarkdown({
     id: reportId,
     title: `Closure of ${name}`,
@@ -221,6 +229,7 @@ async function finalize(projectRoot: string, taskName: string, options: ClosureO
     const archivedState = parseMarkdown(await readText(archivedStatePath));
     archivedState.data.status = "closed";
     archivedState.data.owner_binding_id = null;
+    archivedState.data.closure_report = path.relative(projectRoot, reportPath).split(path.sep).join("/");
     await atomicWrite(archivedStatePath, renderMarkdown(archivedState.data, archivedState.body));
     for (const file of await walkFiles(path.join(archiveRoot, "chats"))) {
       if (path.basename(file) !== "MEMORY.md") continue;

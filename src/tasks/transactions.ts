@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { lstat, readdir, rm } from "node:fs/promises";
+import { lstat, readdir, realpath, rm } from "node:fs/promises";
 import path from "node:path";
 import { atomicWrite, createExclusive, ensureDir, exists, readText, within } from "../core/fs.js";
+import { layoutPaths } from "../core/layout.js";
 
 export async function withProjectLock<T>(root: string, action: () => Promise<T>): Promise<T> {
   const target = path.join(root, ".local/locks/project.lock");
@@ -34,7 +35,12 @@ export async function assertNoPending(root: string): Promise<void> {
 }
 async function safeTarget(root: string, relative: string): Promise<string> {
   const target = path.resolve(root, relative);
-  if (!within(path.join(root, "tasks"), target) || target === path.join(root, "tasks")) throw new Error("Transaction target escapes task storage");
+  const layout = layoutPaths(root);
+  const taskRoot = path.join(root, "tasks");
+  const workRoot = layout.compact ? layout.work : "";
+  const inTasks = within(taskRoot, target) && target !== taskRoot;
+  const inWork = layout.compact && within(workRoot, target) && target !== workRoot && target.endsWith(".md");
+  if (!inTasks && !inWork) throw new Error("Transaction target escapes task or compact work storage");
   let current = target;
   while (within(root, current) && current !== root) {
     try { if ((await lstat(current)).isSymbolicLink()) throw new Error("Task transaction rejects symlink targets"); }
@@ -59,10 +65,12 @@ async function applyTransaction(root: string, file: string, tx: Transaction): Pr
 }
 /** Caller holds the project lock. All intended contents are durable before any task file changes. */
 export async function writeTransaction(root: string, writes: Map<string, string>): Promise<void> {
+  const suppliedRoot = path.resolve(root);
+  root = await realpath(root);
   await assertNoPending(root);
   const tx: Transaction = { version: 1, status: "pending", writes: [] };
   for (const [target, after] of writes) {
-    const relative = path.relative(root, target);
+    const relative = path.relative(within(suppliedRoot, target) ? suppliedRoot : root, target);
     await safeTarget(root, relative);
     tx.writes.push({ path: relative, before: await exists(target) ? await readText(target) : null, after });
   }
@@ -71,6 +79,7 @@ export async function writeTransaction(root: string, writes: Map<string, string>
   await applyTransaction(root, file, tx);
 }
 export async function repairTransactions(root: string, unlock?: string): Promise<string[]> {
+  root = await realpath(root);
   if (unlock) {
     const target = path.join(root, ".local/locks/project.lock");
     const lock = JSON.parse(await readText(target));

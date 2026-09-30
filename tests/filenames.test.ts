@@ -9,7 +9,7 @@ import { markdownRecords } from "../src/core/records.js";
 import { parseMarkdown, renderMarkdown } from "../src/frontmatter/index.js";
 import { migrateFilenames } from "../src/migration/filenames.js";
 import { repairFilenameOperations } from "../src/migration/transactions.js";
-import { initProject } from "../src/projects/index.js";
+import { legacyInitProject as initProject } from "./legacy-fixture.js";
 import { resolveMemoryTask, startMemoryTask } from "../src/tasks/memory.js";
 import { validateProject } from "../src/validation/index.js";
 

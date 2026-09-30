@@ -1,3 +1,4 @@
+import { layoutPaths } from "../core/layout.js";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { exists, readText } from "../core/fs.js";
@@ -39,20 +40,21 @@ async function featureRecords(projectRoot: string, directory: string, schema: ty
 }
 
 export async function selectFeatureContext(projectRoot: string, requested: Record<string, ContextLevel>): Promise<ContextSelection> {
-  const featureRoot = path.join(projectRoot, "doc", "features");
+  const layout = layoutPaths(projectRoot);
+  const featureRoot = layout.features;
   const definitions = new Map<string, { directory: string; data: ReturnType<typeof featureSchema.parse> }>();
   const requirementPaths = new Map<string, string>();
   const ownedRequirements = new Map<string, string[]>();
   if (await exists(featureRoot)) {
     for (const entry of await readdir(featureRoot, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
-      const file = path.join(featureRoot, entry.name, "FEATURE.md");
+      const file = path.join(featureRoot, entry.name, layout.featureFile);
       if (!(await exists(file))) continue;
       const data = featureSchema.parse(parseMarkdown(await readText(file)).data);
       definitions.set(data.name, { directory: path.dirname(file), data });
     }
   }
-  const requirementsRoot = path.join(projectRoot, "doc", "requirements");
+  const requirementsRoot = layout.requirements;
   if (await exists(requirementsRoot)) {
     for (const entry of await readdir(requirementsRoot, { withFileTypes: true })) {
       if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
@@ -85,15 +87,15 @@ export async function selectFeatureContext(projectRoot: string, requested: Recor
   }
 
   const files = new Set<string>();
-  const decisions = await featureRecords(projectRoot, path.join(projectRoot, "doc", "decisions"), decisionSchema);
-  const reports = await featureRecords(projectRoot, path.join(projectRoot, "doc", "reports"), reportSchema);
+  const decisions = await featureRecords(projectRoot, layout.decisions, decisionSchema);
+  const reports = await featureRecords(projectRoot, layout.reports, reportSchema);
   for (const [name, level] of Object.entries(levels)) {
     if (level === "none") continue;
     const feature = definitions.get(name)!;
     if (level === "contract") {
       for (const contract of feature.data.contracts) files.add(contract);
     } else {
-      files.add(path.relative(projectRoot, path.join(feature.directory, "FEATURE.md")));
+      files.add(path.relative(projectRoot, path.join(feature.directory, layout.featureFile)));
       for (const contract of feature.data.contracts) files.add(contract);
       for (const requirement of feature.data.requirements ?? []) files.add(requirementPaths.get(requirement) ?? requirement);
       for (const requirement of ownedRequirements.get(name) ?? []) files.add(requirement);

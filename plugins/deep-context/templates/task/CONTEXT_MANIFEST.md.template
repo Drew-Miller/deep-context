@@ -3,7 +3,7 @@ task: {{TASK_NAME}}
 context_version: 1
 features:{{FEATURES_YAML}}
 requirements: []
-backlog_awareness:
+work_awareness:
   mode: metadata
 project_context:
   planning_runs: 0
@@ -19,12 +19,11 @@ project_context:
 - ../../CONTEXT_MAP.md
 - TASK_CONTEXT.md
 - TASK_STATE.md
-- ../../doc/FEATURES.md
-- ../../doc/REQUIREMENTS.md
-- ../../doc/DECISIONS.md
-- ../../doc/REPORTS.md
-- relevant pitches from ../../doc/BACKLOG.md
-- relevant objectives from ../../doc/ACTIVE.md
+- ../../docs/features/INDEX.md
+- ../../docs/requirements/INDEX.md
+- ../../docs/decisions/INDEX.md
+- ../../docs/reports/INDEX.md
+- relevant work item summaries from ../../work/INDEX.md
 
 ## Selected Feature Context
 
@@ -37,5 +36,5 @@ Load canonical bodies only when selected here or justified by changed code. Feat
 ## Do Not Load by Default
 
 - unrelated feature bodies
-- every requirement or Backlog body
+- every requirement or work item body
 - all decisions or source history

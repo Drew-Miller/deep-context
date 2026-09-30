@@ -93,6 +93,37 @@ describe("durable chat task memory", () => {
     await expect(saveMemoryTask(project, task.taskId, { chatId: "a", expectedRevision: saved.stateRevision, checkpoint: { blockers: 1 } as never })).rejects.toThrow("must be a string");
   });
 
+  it("normalizes a migrated task heading before saving its next action", async () => {
+    const { project } = await fixture();
+    const task = await startMemoryTask(project, { chatId: "manual", description: "Continue a migrated task" });
+    const statePath = path.join(task.taskPath, "TASK_STATE.md");
+    const state = parseMarkdown(await readFile(statePath, "utf8"));
+    state.body = state.body.replace("## Exact Next Safe Action\n\n", "## Exact Next Safe Action\n");
+    state.body += "\n## Exact Next Safe Action\n\nStale duplicate.\n";
+    await writeFile(statePath, renderMarkdown(state.data, state.body));
+    const saved = await saveMemoryTask(project, task.taskId, { chatId: "manual", expectedRevision: task.stateRevision, checkpoint: { nextAction: "Verify the installed desktop gate." } });
+    const updated = parseMarkdown(await readFile(statePath, "utf8")).body;
+    expect(saved.stateRevision).toBe(task.stateRevision + 1);
+    expect(updated.match(/## Exact Next Safe Action/g)).toHaveLength(1);
+    expect(updated).toContain("## Exact Next Safe Action\n\nVerify the installed desktop gate.");
+    expect(updated).not.toContain("Stale duplicate.");
+  });
+
+  it("replaces supplied checkpoint sections while retaining the chat history", async () => {
+    const { project } = await fixture();
+    const task = await startMemoryTask(project, { chatId: "replace", description: "Track verification" });
+    const first = await saveMemoryTask(project, task.taskId, { chatId: "replace", expectedRevision: task.stateRevision, checkpoint: { blockers: "Build gate remains.\n\nStale warning." } });
+    const cleaned = await saveMemoryTask(project, task.taskId, { chatId: "replace", expectedRevision: first.stateRevision, checkpoint: { blockers: "Build gate remains." } });
+    await saveMemoryTask(project, task.taskId, { chatId: "replace", expectedRevision: cleaned.stateRevision, checkpoint: { blockers: "Only the desktop gate remains." } });
+    const state = parseMarkdown(await readFile(path.join(task.taskPath, "TASK_STATE.md"), "utf8")).body;
+    const chat = parseMarkdown(await readFile(path.join(task.taskPath, "chats", task.bindingId!, "MEMORY.md"), "utf8")).body;
+    expect(state).toContain("Only the desktop gate remains.");
+    expect(state).not.toContain("Build gate remains.");
+    expect(state).not.toContain("Stale warning.");
+    expect(chat).toContain("Build gate remains.");
+    expect(chat).toContain("Only the desktop gate remains.");
+  });
+
   it("creates a task with only relevant prior conversation context", async () => {
     const { project } = await fixture();
     const task = await startMemoryTask(project, { chatId: "summary", name: "Export validation", description: "Add validated export", initialContext: {

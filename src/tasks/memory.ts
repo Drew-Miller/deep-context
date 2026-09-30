@@ -4,24 +4,28 @@ import { lstat, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { atomicWrite, exists, readText, within } from "../core/fs.js";
 import { normalizeTaskName } from "../core/names.js";
-import { recordFilename } from "../core/records.js";
+import { canonicalRecordById, recordFilename } from "../core/records.js";
+import { layoutPaths } from "../core/layout.js";
 import { git } from "../core/git.js";
 import { parseMarkdown, renderMarkdown } from "../frontmatter/index.js";
+import { workItemSchema } from "../frontmatter/schemas.js";
 import { selectFeatureContext } from "../routing/index.js";
 import { taskAgents } from "./templateFiles.js";
 import { memoryTaskOrder, validateMemoryTaskOrder } from "./order.js";
 import { defaultReadOnlySource, createIsolatedSource, resolveSourceBinding, sourceSnapshot, validateSourceBinding, type SourceBinding, type SourceAttachOptions } from "./source.js";
 import { assertNoPending, pendingTransactions, repairTransactions, withProjectLock, writeTransaction } from "./transactions.js";
+import { assertNoPendingContext } from "../backlog/transactions.js";
+import { assertNoPendingFilenameOperations } from "../migration/transactions.js";
 export { withProjectLock } from "./transactions.js";
 
 export interface MemorySelectorOptions { chatId?: string | null; bindingId?: string; expectedRevision?: number }
 export interface InitialTaskContext { acceptanceCriteria?: string; acceptedDecisions?: string; constraints?: string; findings?: string; openQuestions?: string }
-export interface StartMemoryTaskOptions extends MemorySelectorOptions { description: string; name?: string; feature?: string; runtime?: string; sourceBinding?: SourceBinding; predecessorTaskId?: string; initialContext?: InitialTaskContext }
-export interface ResumeMemoryTaskOptions extends MemorySelectorOptions { takeover?: boolean; runtime?: string }
+export interface StartMemoryTaskOptions extends MemorySelectorOptions { description: string; name?: string; feature?: string; runtime?: string; sourceBinding?: SourceBinding; predecessorTaskId?: string; initialContext?: InitialTaskContext; workItems?: string[] }
+export interface ResumeMemoryTaskOptions extends MemorySelectorOptions { takeover?: boolean; runtime?: string; workItems?: string[] }
 export interface TaskCheckpoint { completedWork?: string; decisions?: string; blockers?: string; openQuestions?: string; nextAction?: string }
 export interface SaveMemoryTaskOptions extends MemorySelectorOptions { note?: string; notes?: string; nextAction?: string; release?: boolean; checkpoint?: TaskCheckpoint }
 export interface AttachMemorySourceOptions extends MemorySelectorOptions, SourceAttachOptions {}
-interface State extends Record<string, unknown> { schema_version: number; task_id: string; task: string; title: string; status: "active" | "closed"; state_revision: number; owner_binding_id: string | null; source_binding: SourceBinding }
+interface State extends Record<string, unknown> { schema_version: number; task_id: string; task: string; title: string; status: "active" | "closed"; state_revision: number; owner_binding_id: string | null; source_binding: SourceBinding; work_items?: string[] }
 interface Binding extends Record<string, unknown> { task_id: string; binding_id: string; runtime: string; runtime_chat_id: string | null; status: "active" | "released" }
 interface Task { root: string; state: State; body: string; legacy: boolean }
 export interface MemoryTaskResult { taskId: string; taskPath: string; title: string; status: string; legacy: boolean; bindingId: string | null; bindingStatus: "active" | "released" | null; isOwner: boolean; ownerBindingId: string | null; stateRevision: number; sourceBinding: SourceBinding; requiredReads: string[] }
@@ -29,6 +33,11 @@ export interface UnboundMemoryTaskResult { status: "unbound"; bindingStatus: nul
 export interface ListMemoryTaskResult { taskId: string; title: string; objective: string; ownerBindingId: string | null; ownershipState: "owned" | "released"; taskPath: string; queuePosition: number | null }
 
 const uuid = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+async function assertNoPendingLayout(root: string): Promise<void> {
+  await assertNoPending(root);
+  await assertNoPendingContext(root);
+  await assertNoPendingFilenameOperations(root);
+}
 function checkIdentity(options: MemorySelectorOptions): void {
   if (options.bindingId && !uuid(options.bindingId)) throw new Error("Invalid binding ID");
   if (options.chatId != null && !/^[A-Za-z0-9._:-]{1,200}$/.test(options.chatId)) throw new Error("Invalid chat ID");
@@ -55,13 +64,46 @@ async function readTask(root: string): Promise<Task> {
   const s = doc.data as State;
   if (!uuid(s.task_id) || typeof s.title !== "string" || typeof s.task !== "string" || !Number.isInteger(s.state_revision) || s.state_revision < 1 || !["active", "closed"].includes(s.status) || (s.owner_binding_id !== null && !uuid(s.owner_binding_id))) throw new Error(`Invalid task metadata: ${file}`);
   validateSourceBinding(s.source_binding);
+  if (s.work_items !== undefined && (!Array.isArray(s.work_items) || s.work_items.some(item => typeof item !== "string"))) throw new Error(`Invalid task work items: ${file}`);
   if (s.status === "active" && s.task !== path.basename(root)) throw new Error("Task folder identity mismatch");
   if (s.source_binding.ownership === "deep-context" && path.resolve(s.source_binding.path!) !== path.join(root, "worktree") && s.status !== "closed") throw new Error("Owned checkout escapes task worktree");
   return { root, state: s, body: doc.body, legacy };
 }
+
+async function linkWorkItems(root: string, taskId: string, ids: string[] | undefined, writes: Map<string, string>): Promise<string[]> {
+  const unique = [...new Set(ids ?? [])];
+  if (!unique.length) return [];
+  const canonical: string[] = [];
+  const layout = layoutPaths(root);
+  if (!layout.compact) throw new Error("Work-item links require the compact layout");
+  for (const id of unique) {
+    const file = await canonicalRecordById(layout.work, id);
+    if (!file) throw new Error(`Unknown work item: ${id}`);
+    const document = parseMarkdown(await readText(file));
+    const item = workItemSchema.parse(document.data);
+    canonical.push(item.id);
+    const tasks = [...new Set([...item.tasks, taskId])];
+    if (tasks.length !== item.tasks.length) {
+      document.data.tasks = tasks;
+      writes.set(file, renderMarkdown(document.data, document.body));
+    }
+  }
+  return [...new Set(canonical)];
+}
+async function newTaskFolder(root: string, title: string, taskId: string): Promise<string> {
+  const slug = normalizeTaskName(title).slice(0, 64);
+  if (!layoutPaths(root).compact) return `${slug}--${taskId}`;
+  const directory = path.join(root, "tasks");
+  const existing = new Set((await exists(directory) ? await readdir(directory) : []).map(name => name.toLowerCase()));
+  for (let index = 1; ; index++) {
+    const candidate = `${slug}${index === 1 ? "" : `-${index}`}`;
+    if (!existing.has(candidate.toLowerCase())) return candidate;
+  }
+}
 async function tasks(root: string): Promise<Task[]> {
   const result: Task[] = [];
-  for (const folder of ["tasks", ".local/archives", "doc/reports/closures"]) {
+  const layout = layoutPaths(root);
+  for (const folder of ["tasks", ".local/archives", path.relative(root, path.join(layout.reports, "closures"))]) {
     const base = path.join(root, folder);
     if (!await exists(base)) continue;
     for (const entry of await readdir(base, { withFileTypes: true })) {
@@ -127,9 +169,11 @@ function result(task: Task, binding: Binding | null = null): MemoryTaskResult {
   const project = parent === "archives" ? path.resolve(task.root, "../../..") : parent === "closures" ? path.resolve(task.root, "../../../..") : path.resolve(task.root, "../..");
   const bindingId = binding?.binding_id ?? null;
   const reportId = `CLOSURE-${task.state.task_id.toUpperCase()}`;
+  const layout = layoutPaths(project);
   const closureReports = task.legacy ? [] : [
-    path.join(project, "doc", "reports", "closures", recordFilename(reportId, `Closure of ${task.state.task}`, "closure")),
-    path.join(project, "doc", "reports", "closures", `${task.state.task_id}.md`),
+    ...(typeof task.state.closure_report === "string" ? [path.resolve(project, task.state.closure_report)] : []),
+    path.join(layout.reports, "closures", recordFilename(reportId, `Closure of ${task.state.task}`, "closure")),
+    path.join(layout.reports, "closures", `${task.state.task_id}.md`),
   ];
   const closedReport = [...closureReports, path.join(task.root, "REPORT.md")].find(existsSync);
   return { taskId: task.state.task_id, taskPath: task.root, title: task.state.title, status: task.state.status, legacy: task.legacy, bindingId, bindingStatus: binding?.status ?? null, isOwner: binding?.binding_id === task.state.owner_binding_id && binding.status === "active", ownerBindingId: task.state.owner_binding_id, stateRevision: task.state.state_revision, sourceBinding: task.state.source_binding,
@@ -193,14 +237,15 @@ export async function startMemoryTask(root: string, options: StartMemoryTaskOpti
   if (options.runtime && options.runtime !== "codex") throw new Error("Only local Codex chat bindings are supported");
   const initialContext = validateInitialContext(options.initialContext);
   return withProjectLock(root, async () => {
-    await assertNoPending(root);
+    await assertNoPendingLayout(root);
     const bound = await association(root, options.chatId);
     if (bound?.ambiguous) throw new Error("Chat has multiple historical task associations; select a task for read-only resolution");
     if (bound) return result(bound.task, bound.binding);
+    const projectRoot = await realpath(root);
     const id = randomUUID(), bindingId = randomUUID();
     const title = options.name?.trim() || options.description.trim().split(/\r?\n/, 1)[0].slice(0, 100);
-    const folder = `${normalizeTaskName(title).slice(0, 64)}--${id}`;
-    const taskRoot = path.join(await realpath(root), "tasks", folder);
+    const folder = await newTaskFolder(projectRoot, title, id);
+    const taskRoot = path.join(projectRoot, "tasks", folder);
     if (options.sourceBinding && !["none", "read-only"].includes(options.sourceBinding.mode)) throw new Error("Start creates memory only; use attach-source for editable checkouts");
     const source = options.sourceBinding ? await sourceSnapshot(root, options.sourceBinding) : await defaultReadOnlySource(root);
     if (options.predecessorTaskId && (await select(root, options.predecessorTaskId)).state.status !== "closed") throw new Error("Predecessor must be a closed task");
@@ -211,10 +256,12 @@ export async function startMemoryTask(root: string, options: StartMemoryTaskOpti
       [statePath(task), stateText(task)],
       [path.join(taskRoot, "AGENTS.md"), taskAgents(title)],
       [path.join(taskRoot, "TASK_CONTEXT.md"), renderMarkdown({ task_id: id }, initialTaskBody(options.description, initialContext))],
-      [path.join(taskRoot, "CONTEXT_MANIFEST.md"), renderMarkdown({ task_id: id, context_version: 1, features: selection.levels }, `# Context Manifest\n\n## Always Load\n\n- ../../AGENTS.md\n- ../../CONTEXT_MAP.md\n- TASK_CONTEXT.md\n- TASK_STATE.md\n- ../../doc/FEATURES.md\n- ../../doc/REQUIREMENTS.md\n\n## Selected Context\n\n${selection.files.map(f => "- ../../" + f).join("\n") || "No feature bodies selected yet."}\n\nDependencies start at contract level and never recursively expand without evidence.\n`)],
+      [path.join(taskRoot, "CONTEXT_MANIFEST.md"), renderMarkdown({ task_id: id, context_version: 1, features: selection.levels }, `# Context Manifest\n\n## Always Load\n\n- ../../AGENTS.md\n- ../../CONTEXT_MAP.md\n- TASK_CONTEXT.md\n- TASK_STATE.md\n- ../../${layoutPaths(root).compact ? "docs/features/INDEX.md" : "doc/FEATURES.md"}\n- ../../${layoutPaths(root).compact ? "docs/requirements/INDEX.md" : "doc/REQUIREMENTS.md"}\n\n## Selected Context\n\n${selection.files.map(f => "- ../../" + f).join("\n") || "No feature bodies selected yet."}\n\nDependencies start at contract level and never recursively expand without evidence.\n`)],
       [path.join(taskRoot, "WORKLOG.md"), "# Worklog\n\nTask history; promote durable conclusions before closure.\n"],
       [chatPath(task, bindingId), renderMarkdown(newBinding(id, bindingId, options.chatId), chatBody)]
     ]);
+    if (layoutPaths(root).compact) state.work_items = await linkWorkItems(root, id, options.workItems, writes);
+    writes.set(statePath(task), stateText(task));
     await writeTransaction(root, writes);
     return result(task, newBinding(id, bindingId, options.chatId));
   });
@@ -246,17 +293,31 @@ function initialTaskBody(description: string, context?: InitialTaskContext): str
 export async function resumeMemoryTask(root: string, selector: string, options: ResumeMemoryTaskOptions = {}): Promise<MemoryTaskResult> {
   checkIdentity(options);
   return withProjectLock(root, async () => {
-    await assertNoPending(root);
+    await assertNoPendingLayout(root);
     const task = await select(root, selector);
     if (task.state.status === "closed") throw new Error("Closed tasks cannot be resumed; start a new task with a predecessor link");
     if (task.state.pending_source) throw new Error("Source attachment needs repair-tasks before resume");
     const bound = await association(root, options.chatId, selector);
     if (bound?.ambiguous) throw new Error("Chat has multiple historical task associations; mutations require manual recovery");
     if (bound && bound.task.root !== task.root) throw new Error("This chat is associated with another task; open a new chat for different work");
-    if (bound && bound.binding.binding_id === task.state.owner_binding_id) return result(task, bound.binding);
+    if (bound && bound.binding.binding_id === task.state.owner_binding_id && !options.workItems?.length) return result(task, bound.binding);
     const explicitBinding = options.bindingId && !options.chatId ? (await bindings(task)).find(b => b.binding_id === options.bindingId) : undefined;
     if (options.bindingId && !options.chatId && !explicitBinding) throw new Error("Unknown binding ID for task");
-    if (explicitBinding?.binding_id === task.state.owner_binding_id) return result(task, explicitBinding);
+    if (explicitBinding?.binding_id === task.state.owner_binding_id && !options.workItems?.length) return result(task, explicitBinding);
+    const currentOwner = [bound?.binding, explicitBinding].find(binding => binding?.binding_id === task.state.owner_binding_id && binding.status === "active");
+    if (currentOwner && options.workItems?.length) {
+      if (!task.legacy) checkRevision(task.state, options);
+      const writes = new Map<string, string>();
+      const links = await linkWorkItems(root, task.state.task_id, options.workItems, writes);
+      const next = [...new Set([...(task.state.work_items ?? []), ...links])];
+      if (next.length !== (task.state.work_items ?? []).length) {
+        task.state.work_items = next;
+        task.state.state_revision++; task.state.updated_at = new Date().toISOString();
+        writes.set(statePath(task), stateText(task));
+        await writeTransaction(root, writes);
+      }
+      return result(task, currentOwner);
+    }
     const priorBinding = bound?.binding ?? explicitBinding;
     if (task.state.owner_binding_id && !options.takeover) throw new Error("Task has another owner; explicit --takeover is required");
     if (!task.legacy) checkRevision(task.state, options);
@@ -283,6 +344,8 @@ export async function resumeMemoryTask(root: string, selector: string, options: 
       task.state.owner_binding_id = priorBinding.binding_id;
       task.state.state_revision++; task.state.updated_at = new Date().toISOString();
       writes.set(file, renderMarkdown(restored.data, restored.body));
+      const links = await linkWorkItems(root, task.state.task_id, options.workItems, writes);
+      if (links.length) task.state.work_items = [...new Set([...(task.state.work_items ?? []), ...links])];
       writes.set(statePath(task), stateText(task));
       await writeTransaction(root, writes);
       return result(task, { ...priorBinding, status: "active" });
@@ -298,6 +361,8 @@ export async function resumeMemoryTask(root: string, selector: string, options: 
     task.state.owner_binding_id = id; task.state.state_revision++; task.state.updated_at = new Date().toISOString();
     const created = priorBinding?.status === "released" ? { ...priorBinding, status: "active" as const } : newBinding(task.state.task_id, id, options.chatId);
     const existingMemory = priorBinding?.status === "released" ? parseMarkdown(await readText(chatPath(task, id))).body : chatBody;
+    const links = await linkWorkItems(root, task.state.task_id, options.workItems, writes);
+    if (links.length) task.state.work_items = [...new Set([...(task.state.work_items ?? []), ...links])];
     writes.set(chatPath(task, id), renderMarkdown(created, existingMemory));
     writes.set(statePath(task), stateText(task));
     await writeTransaction(root, writes);
@@ -307,7 +372,7 @@ export async function resumeMemoryTask(root: string, selector: string, options: 
 
 export async function saveMemoryTask(root: string, selector: string, options: SaveMemoryTaskOptions): Promise<MemoryTaskResult> {
   return withProjectLock(root, async () => {
-    await assertNoPending(root);
+    await assertNoPendingLayout(root);
     if ((await association(root, options.chatId, selector))?.ambiguous) throw new Error("Chat has multiple historical task associations; mutations require manual recovery");
     const task = await select(root, selector);
     const binding = await assertMemoryOwner(task.root, options);
@@ -330,17 +395,17 @@ export async function saveMemoryTask(root: string, selector: string, options: Sa
       for (const [key, heading] of sections) {
         const value = checkpoint[key];
         if (value === undefined || !value.trim()) continue;
-        const current = task.body.match(new RegExp("## " + heading + "\\n\\n([\\s\\S]*?)(?=\\n## |$)"))?.[1]?.trim();
-        if (current === value.trim() || (key !== "nextAction" && current?.includes(value.trim()))) continue;
-        const previous = current && !["- None yet.", "- None.", "- Ready to begin."].includes(current) ? current : "";
-        task.body = replaceSection(task.body, heading, key === "nextAction" ? value : [previous, value].filter(Boolean).join("\n\n"));
+        const existing = sectionBodies(task.body, heading);
+        const current = existing.at(-1);
+        if (existing.length === 1 && current === value.trim()) continue;
+        task.body = replaceSection(task.body, heading, value);
         chatEntries.push(`### ${heading}\n\n${value}`);
       }
       if (chatEntries.length) memory.body += "\n\n## Structured Checkpoint\n\n" + chatEntries.join("\n\n") + "\n";
     }
     const snapshot = await sourceSnapshot(root, task.state.source_binding);
     if (JSON.stringify(snapshot) !== JSON.stringify(task.state.source_binding)) {
-      const previousBlockers = task.body.match(/## Active Work and Blockers\n\n([\s\S]*?)(?=\n## |$)/)?.[1]?.trim() ?? "";
+      const previousBlockers = sectionBodies(task.body, "Active Work and Blockers").at(-1) ?? "";
       task.body = replaceSection(task.body, "Active Work and Blockers", previousBlockers + "\n\nSource changed since the previous checkpoint. Revalidate source-dependent findings.");
     }
     task.state.source_binding = snapshot;
@@ -366,7 +431,7 @@ function validateCheckpoint(value: unknown): TaskCheckpoint | undefined {
 
 export async function attachMemorySource(root: string, selector: string, options: AttachMemorySourceOptions): Promise<MemoryTaskResult> {
   return withProjectLock(root, async () => {
-    await assertNoPending(root);
+    await assertNoPendingLayout(root);
     if ((await association(root, options.chatId, selector))?.ambiguous) throw new Error("Chat has multiple historical task associations; mutations require manual recovery");
     const task = await select(root, selector);
     const owner = await assertMemoryOwner(task.root, options);
@@ -431,6 +496,17 @@ export async function validateMemoryTasks(root: string): Promise<string[]> {
           chats.add(b.runtime_chat_id);
         }
       }
+      // Existing schema-v2 task folders predate compact work links and remain valid.
+      // Once a task declares links, every referenced compact work item must agree.
+      if (!task.legacy && task.state.work_items !== undefined) {
+        const layout = layoutPaths(root);
+        if (!layout.compact) errors.push(`Task ${task.state.task_id} has compact work links in a legacy project`);
+        else for (const workId of task.state.work_items) {
+          const file = await canonicalRecordById(layout.work, workId);
+          if (!file) errors.push(`Task ${task.state.task_id} references unknown work item ${workId}`);
+          else if (!workItemSchema.parse(parseMarkdown(await readText(file)).data).tasks.includes(task.state.task_id)) errors.push(`Work item ${workId} is missing reverse task link ${task.state.task_id}`);
+        }
+      }
     }
   } catch (error) { errors.push(error instanceof Error ? error.message : String(error)); }
   return errors;
@@ -459,7 +535,17 @@ export async function repairMemoryTasks(root: string, unlock?: string): Promise<
 function taskBody(description: string): string {
   return "# Task State\n\n## Objective and Acceptance\n\n" + description + "\n\n## Completed Work and Evidence\n\n- None yet.\n\n## Active Work and Blockers\n\n- Ready to begin.\n\n## Decisions and Discoveries Awaiting Promotion\n\n- None.\n\n## Open Questions\n\n- None.\n\n## Exact Next Safe Action\n\nRead the manifest and define acceptance evidence before implementation.\n";
 }
+function sectionBodies(body: string, heading: string): string[] {
+  const expression = new RegExp("(?:^|\\n)## " + heading + "\\n(?:\\n)?([\\s\\S]*?)(?=\\n## |$)", "g");
+  return [...body.matchAll(expression)].map(match => match[1].trim());
+}
 function replaceSection(body: string, heading: string, value: string): string {
-  const expression = new RegExp("(## " + heading + "\\n\\n)([\\s\\S]*?)(?=\\n## |$)");
-  return expression.test(body) ? body.replace(expression, (_match, prefix) => prefix + value.trim() + "\n") : body.trimEnd() + "\n\n## " + heading + "\n\n" + value.trim() + "\n";
+  const expression = new RegExp("(^|\\n)## " + heading + "\\n(?:\\n)?[\\s\\S]*?(?=\\n## |$)", "g");
+  let replaced = false;
+  const updated = body.replace(expression, match => {
+    if (replaced) return "";
+    replaced = true;
+    return `${match.startsWith("\n") ? "\n" : ""}## ${heading}\n\n${value.trim()}\n`;
+  });
+  return replaced ? updated : body.trimEnd() + "\n\n## " + heading + "\n\n" + value.trim() + "\n";
 }

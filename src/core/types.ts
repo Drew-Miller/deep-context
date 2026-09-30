@@ -10,6 +10,8 @@ export interface Diagnostic {
 
 export interface ProjectState {
   schemaVersion: 1;
+  layout?: "compact-v1" | "legacy";
+  legacyCliCompatible?: boolean;
   name: string;
   projectRoot: string;
   repositoryPath?: string;

@@ -1,3 +1,3 @@
-# Alternate Runtime Entry
+# Claude entry
 
-Follow `AGENTS.md`, then `START_HERE.md`. Preserve the same canonical context, authority, safety boundaries, and live ledger across runtimes.
+Follow AGENTS.md and CONTEXT_MAP.md in this context. Apply the same compact-layout compatibility boundary, source authority, ownership and selective-reading rules.

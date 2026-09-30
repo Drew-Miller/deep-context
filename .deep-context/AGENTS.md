@@ -1,30 +1,16 @@
-# deep-context Deep Context routing
+# Deep Context project instructions
 
-This project stores durable context in human-readable files. Chats and active context windows are disposable.
+Read CONTEXT_MAP.md, PROJECT.md and work/INDEX.md, then only relevant canonical documents. Follow the repository-root AGENTS.md for source rules; do not reread it via a symlink.
 
-## Startup
+This context was manually migrated to the accepted compact layout. The bundled CLI now detects and operates on this layout. Use `resolve-task --project <this root> --allow-unbound --json` with the runtime chat ID when available, then follow `requiredReads`; never guess the newest task or acquire ownership implicitly. Preserve owner IDs and revisions. An unbound chat stays at project scope. Product adoption evidence is in work/items/adopt-compact-context-layout.md; installed desktop discovery is a separate open gate.
 
-1. Read `CONTEXT_MAP.md`.
-2. Read `START_HERE.md` and its live `docs/plan/TASKS.md` and `docs/plan/STATUS.json` route before acting.
-3. Read `repo/AGENTS.md` if present and follow the source repository's required reads and ownership constraints.
-4. If inside `tasks/<task>/`, read the task's `AGENTS.md`, `TASK_CONTEXT.md`, `CONTEXT_MANIFEST.md`, and `TASK_STATE.md`.
-5. Read generated indexes in `doc/` to select canonical files, including decisions and reports for relevant deep context.
-6. Read only relevant canonical bodies. Do not recursively load `doc/`.
+Canonical work state is work/items/*.md; work/INDEX.md is a derived view. A planned objective is not active execution. Accepted requirements and decisions outrank task plans and proposed work. One objective has one work record; task plans, handoffs and progress belong in tasks/. Retain concise outcomes on work items and only substantial lasting reports in docs/reports/.
 
-Project-root chats may resolve an existing association with the installed Deep Context CLI: resolve-task --project <this context root>, using CODEX_THREAD_ID when available. Follow requiredReads, including predecessor chat notes. An unbound chat stays at project scope until deep-task is requested. Explicit task path and binding ID are the fallback, never a newest-task guess.
+After changing canonical content, run the bundled CLI's `rebuild-indexes` and `validate` commands, and check frontmatter, IDs/aliases, links, order and task bindings. Historical reports and archives may mention old paths: use .local/archives/compact-layout-2026-09-25/path-map.json and the original snapshot to interpret them. Historical snapshots and journals must not be rewritten. Source code lives in the parent checkout; sources/records/*.md retain authored provenance and source-relative paths.
 
-## Preservation
+Local transition utilities are retained under `.local/archives/compact-layout-2026-09-25/` as historical migration evidence. The bundled CLI owns current indexes and validation. Use the original snapshot and its manifest to verify pre-migration evidence.
 
-Write durable architecture, contracts, requirements, decisions, or future intent under `doc/`. Checkpoint active work before ending or handing off. Task folders are disposable only after closure promotes durable knowledge.
-
-## Authority
-
-Architecture, accepted requirements, and contracts outrank active task criteria; active criteria outrank Backlog intent; Backlog intent outranks speculation. Existing repository-specific routing and live schedules retain their declared authority.
-
-
-## Automatic context care
-
-Resolve known chat bindings on startup. Read BACKLOG.md and ACTIVE.md at planning and scope changes. Save useful decisions, discoveries, blockers, evidence and future ideas as they arise. Refresh indexes and validate affected context. An unbound chat stays at project scope.
+No task ownership was transferred by this migration. A task’s source/closure hashes captured before migration are historical until its owner performs a new compatible review.
 
 <!-- deep-context:task-routing:start -->
 
@@ -36,7 +22,7 @@ Follow returned requiredReads, then selected manifest context. A successful unbo
 
 One chat belongs to one task even after release or closure. A released association restores context without acquiring ownership. Before source edits or shared task writes, resolve ownership and current revision. A non-owner must explicitly resume; another owner requires confirmed takeover. Closed tasks remain closed. Task attachment neither changes the source working directory nor grants source edit permission.
 
-Checkpoint meaningful decisions, completed work and evidence, blockers, open questions, and exact next action at milestones and before ending work turns; skip unchanged checkpoints. Use save-task with owner identity and expected revision; optional --checkpoint-file supplies completedWork, decisions, blockers, openQuestions and nextAction as strings. Preserve existing relevant findings when updating sections. Report failed saves. Read Backlog and Active indexes at scope changes and load only relevant bodies.
+Checkpoint meaningful decisions, completed work and evidence, blockers, open questions, and exact next action at milestones and before ending work turns; skip unchanged checkpoints. Use save-task with owner identity and expected revision; optional --checkpoint-file supplies completedWork, decisions, blockers, openQuestions and nextAction as strings. Preserve existing relevant findings when updating sections. Report failed saves. Read work/INDEX.md at scope changes and load only relevant bodies.
 
 For an explicit fresh-chat handoff, checkpoint and release ownership, then give a resume prompt with the task UUID and project path. Desktop archive/delete does not release ownership or close task memory. A replacement chat may take over after confirmation and recover from the last saved checkpoint. Automatic care is agent behavior, not a lifecycle hook; interruption can lose unsaved work.
 

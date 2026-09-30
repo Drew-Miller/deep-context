@@ -1,51 +1,20 @@
-# deep-context Context Map
+# Context map
 
-## Read route
+Read AGENTS.md → PROJECT.md → [work index](work/INDEX.md) → relevant indexes → selected bodies. Resolve the runtime chat through the bundled CLI before shared task writes; preserve ownership and revision.
 
-`AGENTS.md` → this map → task manifest when applicable → lightweight indexes → selected canonical frontmatter → selected bodies.
+| Path | Purpose |
+|---|---|
+| [Layout contract](docs/context-layout.md) | Accepted target and compatibility boundary |
+| [Architecture](docs/architecture.md) | Product boundaries and invariants |
+| [Coordinator rules](docs/coordinator-rules.md) | Work acceptance and verification responsibilities |
+| [Manual migration report](docs/reports/compact-layout-migration.md) | Changes, original archive, local-state review and compatibility limits |
+| [Requirements](docs/requirements/INDEX.md) | Accepted atomic requirements |
+| [Decisions](docs/decisions/INDEX.md) | Durable decisions |
+| [Features](docs/features/INDEX.md) | Feature overviews and contracts |
+| [Reports](docs/reports/INDEX.md) | Lasting audit, implementation and closure conclusions |
+| [Work](work/INDEX.md) | One ordered record per objective, including completed history |
+| [Sources](sources/INDEX.md) | Import provenance and authored classifications |
+| tasks/ | Local execution plans, state, handoffs and per-chat memory |
+| .local/ | Reviewed recovery state, raw output and archives |
 
-## Tree
-
-| Path | Role | Authority |
-|---|---|---|
-| `PROJECT.md` | Project identity and durable overview | Canonical |
-| `doc/ARCHITECTURE.md` | System boundaries and invariants | Canonical |
-| `doc/features/*/FEATURE.md` | Feature context and ownership | Canonical |
-| `doc/features/*/CONTRACTS.md` | Boundary contracts | Canonical |
-| `doc/requirements/*.md` | Atomic accepted requirements | Canonical |
-| `doc/backlog/*.md` | Durable proposals, pitches, and status history | Canonical |
-| `doc/active/*.md` | Accepted objectives and executing tasks | Canonical |
-| `doc/decisions/*.md` | Durable decisions | Canonical |
-| `doc/sources/*.md` | Import provenance and dispositions | Canonical |
-| `doc/FEATURES.md`, `REQUIREMENTS.md`, `BACKLOG.md`, `ACTIVE.md`, `DECISIONS.md`, `REPORTS.md`, `SOURCES.md` | Cheap routing indexes | Generated |
-| `tasks/*` | Active transient execution state | Transient until promoted |
-| `.local/state.json` | Resolver and schema state only | Machine-readable, never unique knowledge |
-| `docs/plan/DC-08-CHAT-TASK-PLAN.md` | Desktop chat/task implementation plan | Implemented; live desktop gate remains |
-| `docs/plan/DC-13-TASK-CONTEXT-GUIDE.md` | Accepted task-first guide and compaction recovery plan | Planned; see live ledger |
-| `tasks/*/chats/*/MEMORY.md` | Per-chat notes and canonical binding history | Active task memory |
-| `doc/reports/closures/*.md` | Concise durable closure conclusions | Canonical |
-| `.local/archives/*` | Raw closed task and chat memory | Local archive |
-| `.local/chat-index.json` | Reverse chat association index | Rebuildable from canonical files |
-| `.local/context-operations/*.json` | Recoverable Backlog writes | Local journal |
-
-## Context levels
-
-- `none`: do not load.
-- `contract`: load only the feature boundary contract and selected requirements.
-- `feature`: load the feature definition plus relevant contracts and requirements.
-- `deep`: add decisions and reports associated with the selected feature without loading unrelated history.
-
-Dependencies do not recursively inherit context levels.
-
-## Loss prevention
-
-Indexes can be deleted and rebuilt from canonical files. Closure must classify and promote durable task discoveries before finalization. If classification is uncertain, preserve the information as a Backlog item or unresolved closure finding.
-
-## Planning route
-
-For DC-13 task-first guide work, select DEC-DC-005, REQ-DC-044 through REQ-DC-048, `docs/plan/DC-13-TASK-CONTEXT-GUIDE.md`, and the DC-12 report for the current implementation baseline. DEC-DC-004 remains authoritative for association and ownership; only its no-hook choice is superseded. DEC-DC-001 and DC-08 are historical for superseded layout and skill entry. `docs/plan/TASKS.md` and matching `STATUS.json` remain the live schedule.
-
-
-## In-repository storage
-
-`tasks/` and `.local/` are local-only. All Git worktrees resolve this primary checkout's context. Raw closed memory is retained in `.local/archives/`; concise closure conclusions belong in `doc/reports/closures/*.md`. Rebuild generated indexes from canonical documents.
+No separate planning/evidence directory or Backlog/Active source of truth exists. Implementation plans live with their tasks. Historical coordinator material and the pre-migration tree are under .local/archives/compact-layout-2026-09-25/. The migration map and snapshot allow recovery without restoring old paths into the live route.

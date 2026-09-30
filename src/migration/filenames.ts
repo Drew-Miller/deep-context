@@ -1,9 +1,10 @@
+import { layoutPaths } from "../core/layout.js";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { readdir } from "node:fs/promises";
 import { stringify } from "yaml";
 import { exists, readText } from "../core/fs.js";
-import { isForwarder, markdownRecords, recordCollections, recordFilename, type RecordCollection } from "../core/records.js";
+import { isForwarder, markdownRecords, recordCollections, recordFilename, readableSlug, type RecordCollection } from "../core/records.js";
 import { parseMarkdown, renderMarkdown } from "../frontmatter/index.js";
 import { rebuildIndexes } from "../indexing/index.js";
 import { withProjectLock } from "../tasks/transactions.js";
@@ -92,6 +93,7 @@ async function preview(root: string, options: FilenameOptions): Promise<Filename
 }
 
 export async function migrateFilenames(root: string, options: FilenameOptions = {}): Promise<FilenamePreview> {
+  if (layoutPaths(root).compact) return compactFilenames(root, options);
   if (!options.apply) return preview(root, options);
   return withProjectLock(root, async () => {
     await assertNoPendingContext(root);
@@ -142,4 +144,46 @@ export async function migrateFilenames(root: string, options: FilenameOptions = 
     }
     return plan;
   });
+}
+
+async function compactFilenames(root: string, options: FilenameOptions): Promise<FilenamePreview> {
+  const run = async () => {
+    await assertNoPendingContext(root); await assertNoPendingFilenameOperations(root);
+    const p = layoutPaths(root), moves: FilenameMove[] = [], conflicts: string[] = [];
+    const documents = (await Promise.all([p.work,p.requirements,p.decisions,p.reports,p.sources].map(markdownRecords))).flat().filter(r => typeof r.data.id === "string" && !isForwarder(r.data));
+    const names = new Set(documents.map(r => r.file.toLowerCase()));
+    for (const r of documents) {
+      if (options.id && r.data.id !== options.id && !(Array.isArray(r.data.aliases) && r.data.aliases.includes(options.id))) continue;
+      const slug = readableSlug(String(r.data.path ?? r.data.title ?? r.data.id), "record");
+      if (!options.id && !/--[A-Z0-9-]+\.md$/.test(r.file) && path.basename(r.file).toLowerCase() !== `${String(r.data.id).toLowerCase()}.md`) continue;
+      let target = path.join(path.dirname(r.file), `${slug}.md`);
+      for (let n=2; names.has(target.toLowerCase()) && target !== r.file; n++) target=path.join(path.dirname(r.file),`${slug}-${n}.md`);
+      if (target === r.file) continue;
+      names.add(target.toLowerCase());
+      moves.push({id:String(r.data.id),collection:r.file.startsWith(p.work+path.sep)?"backlog":r.file.startsWith(p.sources+path.sep)?"sources":"reports",from:path.relative(root,r.file),to:path.relative(root,target)});
+    }
+    if (options.id && !documents.some(r=>r.data.id===options.id || (Array.isArray(r.data.aliases)&&r.data.aliases.includes(options.id)))) conflicts.push(`Unknown canonical record ID: ${options.id}`);
+    const paths=new Map(moves.map(m=>[m.from,m.to]));
+    const all=[...documents,...await markdownRecords(path.join(root,"tasks"))];
+    for(const name of ["AGENTS.md","CONTEXT_MAP.md","PROJECT.md"]) if(await exists(path.join(root,name))) { const d=parseMarkdown(await readText(path.join(root,name))); all.push({file:path.join(root,name),...d}); }
+    const writes=new Map<string,string|null>(), referenceUpdates:string[]=[];
+    for(const r of all) {
+      const old=path.relative(root,r.file), next=paths.get(old)??old;
+      const before=await readText(r.file);
+      let after=before;
+      after=after.replace(/\]\(([^\s)]+)\)/g,(match,target:string)=> {
+        if(/^(?:[a-z]+:|#|\/)/i.test(target)) return match;
+        const [value,anchor]=target.split("#"); const key=path.normalize(path.join(path.dirname(old),value)); const mapped=paths.get(key);
+        return mapped ? `](${path.relative(path.dirname(next),mapped)}${anchor?`#${anchor}`:""})` : match;
+      });
+      for(const [from,to] of paths) after=after.split(from).join(to);
+      if(after!==before) referenceUpdates.push(old);
+      if(next!==old || after!==before) writes.set(path.join(root,next),after);
+      if(next!==old) writes.set(r.file,null);
+    }
+    const result={moves,referenceUpdates,exceptions:[],conflicts,fingerprint:createHash("sha256").update(JSON.stringify([...writes])).digest("hex")};
+    if(options.apply) { if(conflicts.length) throw new Error(conflicts.join("; ")); if(writes.size) { await writeFilenameOperation(root,writes); await rebuildIndexes(root); } }
+    return result;
+  };
+  return options.apply ? withProjectLock(root,run) : run();
 }

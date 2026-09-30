@@ -32,7 +32,7 @@ Long-running projects have two failure modes: important decisions vanish with a 
 ## What it includes
 
 - A deterministic CLI for repository storage, indexes, validation, migration, and task lifecycle. Maintenance commands are agent tooling.
-- Three user-facing Codex skills: `deep-init`, `deep-task`, and `deep-close`.
+- Three core workflow skills: `deep-init`, `deep-task`, and `deep-close`, plus `deep-stats` and `deep-audit` utilities.
 - A Git-worktree workflow that keeps task work isolated while preserving source-repository ownership.
 - Generated routing indexes that are cheap to read and safe to rebuild.
 
@@ -59,7 +59,7 @@ codex plugin marketplace upgrade deep-context-repo
 codex plugin add deep-context@deep-context-repo
 ```
 
-During local development, point a local marketplace at `plugins/deep-context/`; use the plugin cachebuster and reinstall flow to test unpushed changes. Do not maintain duplicate per-project copies of the skills.
+During local development, point a personal local-marketplace entry at `plugins/deep-context/`, update the manifest cachebuster, and reinstall `deep-context@personal` to test unpushed changes. Keep the repository marketplace above for Git-backed distribution. The installed plugin is a cached snapshot, so start a new Codex task after reinstalling. Do not maintain duplicate per-project copies of the skills.
 
 ### Optional legacy home configuration
 
@@ -97,27 +97,28 @@ Initialization creates `<primary-checkout>/.deep-context/` and installs a marker
 
 ```text
 repository/
-├── AGENTS.md                 # Source instructions plus managed route
-└── .deep-context/
-    ├── AGENTS.md             # Context routing
-    ├── CONTEXT_MAP.md        # Lightweight knowledge map
-    ├── PROJECT.md            # Durable overview
-    ├── doc/
-    │   ├── ARCHITECTURE.md
-    │   ├── features/             # Feature definitions and contracts
-    │   ├── requirements/         # Atomic accepted requirements
-    │   ├── decisions/            # Durable decisions
-    │   ├── sources/              # Import provenance
-    │   ├── backlog/              # Proposals with elevator pitches
-    │   └── active/               # Accepted work objectives
-    ├── tasks/                # Local task and chat memory
-    ├── .local/               # Local state, journals, raw archives
-    └── repo → /path/to/source
+  AGENTS.md
+  .deep-context/
+    AGENTS.md
+    CONTEXT_MAP.md
+    PROJECT.md
+    docs/
+      architecture.md
+      features/       # overview.md and contracts.md per feature
+      requirements/
+      decisions/
+      reports/        # lasting conclusions
+    work/items/       # one canonical record per objective
+    work/INDEX.md     # generated queue, execution and history
+    sources/records/  # authored provenance
+    sources/INDEX.md
+    tasks/            # local execution plans, task and chat memory
+    .local/           # resolver state, journals and recovery archives
 ```
 
 ### 2. Add durable project knowledge
 
-Open the generated `AGENTS.md` and `CONTEXT_MAP.md` first. Then promote confirmed knowledge into the canonical files under `doc/`:
+Open the generated `AGENTS.md` and `CONTEXT_MAP.md` first. Then promote confirmed knowledge into the canonical files under `docs/`:
 
 - architecture and feature boundaries
 - feature contracts and accepted requirements
@@ -131,9 +132,11 @@ node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs rebuild-ind
 node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs validate --project /path/to/my-project
 ```
 
-New Backlog, Active, and source records use readable slugs with stable IDs. Existing ID-only files remain valid. To rename them, preview `migrate-filenames --project <context-path>`, then run it with `--apply`. The old files become forwarding links. `rename-record <id>` updates a path after its title changes; `repair-filenames` resumes an interrupted migration and refuses intervening edits. Task folders keep their original slug and UUID so chat bindings and attached sources do not move.
+Compact records use descriptive filenames, with stable IDs and legacy aliases in frontmatter. Case-insensitive filename collisions use `-2`, `-3` suffixes. `rename-record <id>` repairs live references; `repair-filenames` resumes interrupted changes without overwriting intervening edits.
 
-Backlog `queue_position` values and task positions in local `tasks/ORDER.md` control work order. `reorder-backlog <id>` and `reorder-task <task-uuid>` accept exactly one of `--before <id>`, `--after <id>`, or `--position <number>`. Generated Backlog views and `list-tasks` show the stored order. Unranked work follows ranked work by stable ID; completed and deferred Backlog items remain separate from the next-up lane. These commands do not change a project's own live schedule.
+One canonical work item owns each objective. Status is proposed, planned, active, blocked, done or merged. `order` ranks proposed/planned work in generated `work/INDEX.md`; `reorder-work` changes that order. Task-local `tasks/ORDER.md` orders execution-memory selection only. Work completion records a concise outcome and any open verification gates without closing its optional task.
+
+Preview old-layout conversion with `migrate-layout --project <root>`; apply with `--apply` after reviewing conflicts. Migration retains original bytes, hashes and a path map under `.local/archives/`. `repair-layout` resumes an interrupted journal. Existing compact contexts are unchanged by a repeated migration.
 
 ### 3. Start or resume task memory
 
@@ -206,12 +209,15 @@ node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs close-task 
 | `init --repo <path>` | Create a project control tree attached to an existing Git repository |
 | `init --empty --name <name>` | Create an empty project control tree |
 | `migrate-project <old-path> --repo <path>` | Validate in-repo copy, keep a dated backup, and redirect the old home |
-| `capture-backlog --title --pitch --provenance` | Save a non-binding proposal with an elevator pitch |
-| `activate-backlog <id> --objective <text>` | Accept an objective after checking related and opposing work |
-| `reorder-backlog <id>` | Place a proposed or planned item before, after, or at a queue position |
+| `capture-work --title --pitch --provenance` | Save a non-binding proposal with an elevator pitch |
+| `activate-work <id> --objective <text>` | Accept an objective after checking related and opposing work |
+| `reorder-work <id>` | Place a proposed or planned item before, after, or at a queue position |
 | `reorder-task <task-uuid>` | Change local task queue order without changing task ownership |
-| `repair-context` | Recover an interrupted Backlog write when no intervening edit conflicts |
-| `migrate-filenames` | Preview or explicitly apply descriptive canonical file paths with forwarding links |
+| `set-work-status <id> --status <status>` | Record planned, blocked, merged or done work; done requires an outcome |
+| `migrate-layout` | Preview or apply recoverable compact layout migration |
+| `repair-layout` | Resume an interrupted layout migration |
+| `repair-context` | Recover an interrupted work item write when no intervening edit conflicts |
+| `migrate-filenames` | Preview or explicitly apply descriptive canonical file paths with repaired references |
 | `rename-record <id>` | Refresh one canonical file path after a title change |
 | `repair-filenames` | Recover interrupted canonical filename changes without overwriting new edits |
 | `rebuild-indexes` | Regenerate lightweight routing indexes |
@@ -229,7 +235,7 @@ node /path/to/deep-context/plugins/deep-context/bin/deep-context.cjs close-task 
 | `close-task <name>` | Prepare an evidence-bound closure review |
 | `close-task <name> --finalize` | Archive an approved, unchanged task and remove its worktree |
 
-The public skills are only `deep-init`, `deep-task`, and `deep-close`. Setup, save, resume, checkpoint, index, and closure subcommands remain agent tooling and compatibility interfaces. Durable `doc/` files and generated indexes are trackable; `tasks/`, `.local/`, and `repo` stay local. All worktrees resolve the primary checkout's context.
+The core workflow skills are `deep-init`, `deep-task`, and `deep-close`; `deep-stats` measures local context and optional usage, while `deep-audit` diagnoses project drift and proposes cleanup. Setup, save, resume, checkpoint, index, and closure subcommands remain agent tooling and compatibility interfaces. Durable `docs/` files and generated indexes are trackable; `tasks/` and `.local/` stay local. All worktrees resolve the primary checkout's context.
 
 ## Development
 

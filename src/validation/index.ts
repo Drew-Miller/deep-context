@@ -1,3 +1,5 @@
+import { layoutPaths } from "../core/layout.js";
+import { validateCompactProject } from "./compact.js";
 import { lstat, readdir, readlink, realpath } from "node:fs/promises";
 import path from "node:path";
 import { buildIndexes } from "../indexing/index.js";
@@ -37,6 +39,7 @@ async function checkReference(projectRoot: string, reference: string, sourceFile
 }
 
 export async function validateProject(projectRoot: string): Promise<Diagnostic[]> {
+  if (layoutPaths(projectRoot).compact) return validateCompactProject(projectRoot);
   const diagnostics: Diagnostic[] = [];
   for (const required of ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md", "doc/ARCHITECTURE.md"]) {
     if (!(await exists(path.join(projectRoot, required)))) diagnostics.push({ level: "error", code: "missing-required", message: `Missing required file: ${required}`, path: required });
@@ -214,7 +217,7 @@ async function validateForwarders(projectRoot: string, candidates: string[], dia
   }
 }
 
-async function validateRepositoryAttachment(
+export async function validateRepositoryAttachment(
   projectRoot: string,
   sources: Map<string, { file: string; data: SourceRecord }>,
   diagnostics: Diagnostic[],
@@ -255,11 +258,11 @@ async function validateRepositoryAttachment(
     diagnostics.push({ level: "error", code: "repository-state-invalid", message: error instanceof Error ? error.message : String(error), path: statePath });
     return;
   }
-  if (!linkedRepository) {
+  if (!linkedRepository && !layoutPaths(projectRoot).compact) {
     diagnostics.push({ level: "error", code: "repository-link-mismatch", message: "State has repositoryPath but repo link is missing.", path: link });
     return;
   }
-  if (linkedRepository !== stateRepository) {
+  if (linkedRepository && linkedRepository !== stateRepository) {
     diagnostics.push({ level: "error", code: "repository-link-mismatch", message: "repo link does not match state.repositoryPath.", path: link });
     return;
   }

@@ -33,11 +33,23 @@ export async function markdownRecords(directory: string): Promise<Array<{ file: 
 }
 
 export async function canonicalRecordById(directory: string, id: string): Promise<string | undefined> {
-  const matches = (await markdownRecords(directory)).filter(({ data }) => !isForwarder(data) && data.id === id);
+  const matches = (await markdownRecords(directory)).filter(({ data }) => !isForwarder(data) && (data.id === id || (Array.isArray(data.aliases) && data.aliases.includes(id))));
   if (matches.length > 1) throw new Error(`Duplicate record ID ${id}`);
   return matches[0]?.file;
 }
 
 export function isForwarder(data: Record<string, unknown>): boolean {
   return Object.hasOwn(data, "redirect_to");
+}
+
+/** Caller serializes allocation and write under the project lock. IDs stay in metadata. */
+export async function newRecordPath(directory: string, id: string, label: string, fallback: string): Promise<string> {
+  const existing = await canonicalRecordById(directory, id);
+  if (existing) return existing;
+  const names = new Set((await exists(directory) ? await readdir(directory) : []).map(name => name.toLowerCase()));
+  const slug = readableSlug(label, fallback);
+  for (let n = 1; ; n++) {
+    const name = `${slug}${n === 1 ? "" : `-${n}`}.md`;
+    if (!names.has(name.toLowerCase())) return path.join(directory, name);
+  }
 }

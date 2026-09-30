@@ -7,7 +7,7 @@ import { parseMarkdown, renderMarkdown } from "../src/frontmatter/index.js";
 import { buildIndexes } from "../src/indexing/index.js";
 import { migrateFilenames } from "../src/migration/filenames.js";
 import { compareUsage, metricsHistory, projectStats, readCodexUsage, recordMetrics } from "../src/metrics/index.js";
-import { initProject } from "../src/projects/index.js";
+import { legacyInitProject as initProject } from "./legacy-fixture.js";
 
 const cleanup: string[] = [];
 afterEach(async () => Promise.all(cleanup.splice(0).map((target) => rm(target, { recursive: true, force: true }))));

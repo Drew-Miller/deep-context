@@ -97,7 +97,7 @@ describe("task lifecycle", () => {
     await createTask(project, "Context Stale", { sourceRulesReviewed: true });
     const reviewPath = await prepareClosure(project, "context-stale");
     await approveReview(reviewPath);
-    await writeFile(path.join(project, "doc", "ARCHITECTURE.md"), "# Changed durable architecture\n");
+    await writeFile(path.join(project, "docs", "architecture.md"), "# Changed durable architecture\n");
     await expect(finalizeClosure(project, "context-stale")).rejects.toThrow("evidence changed");
   });
 
@@ -192,10 +192,10 @@ describe("task lifecycle", () => {
     await exec("git", ["-C", repo, "add", "."]);
     await exec("git", ["-C", repo, "commit", "-m", "initial"]);
     const project = await initProject(path.join(base, "home"), { name: "source", repository: repo });
-    const featureRoot = path.join(project, "doc", "features", "memory");
+    const featureRoot = path.join(project, "docs", "features", "memory");
     await mkdir(featureRoot, { recursive: true });
-    await writeFile(path.join(featureRoot, "FEATURE.md"), "---\nname: memory\ndescription: Durable knowledge\nstatus: active\nowns: []\ntokens: []\ncontracts: [doc/features/memory/CONTRACTS.md]\ndepends_on: {}\n---\n\n# Memory\n");
-    await writeFile(path.join(featureRoot, "CONTRACTS.md"), "# Memory contract\n");
+    await writeFile(path.join(featureRoot, "overview.md"), "---\nname: memory\ndescription: Durable knowledge\nstatus: active\nowns: []\ntokens: []\ncontracts: [docs/features/memory/contracts.md]\ndepends_on: {}\n---\n\n# Memory\n");
+    await writeFile(path.join(featureRoot, "contracts.md"), "# Memory contract\n");
     const task = await createTask(project, "Recovery", { feature: "memory", sourceRulesReviewed: true });
     const statePath = path.join(task, "TASK_STATE.md");
     const state = parseMarkdown(await readFile(statePath, "utf8"));
@@ -205,29 +205,29 @@ describe("task lifecycle", () => {
     const recovered = await readFile(statePath, "utf8");
     expect(recovered).toContain("Promote the signed-manifest decision before cleanup.");
     expect(recovered).toContain("Signed manifests must be durable.");
-    const decisionPath = path.join(project, "doc", "decisions", "DEC-RECOVERY.md");
+    const decisionPath = path.join(project, "docs", "decisions", "DEC-RECOVERY.md");
     await writeFile(decisionPath, "---\nid: DEC-RECOVERY\ntitle: Signed manifests\nstatus: accepted\nfeatures: [memory]\n---\n\n# Signed manifests\n\nFuture work must preserve signed manifests.\n");
     await rebuildIndexes(project);
     const reviewPath = await prepareClosure(project, "recovery");
     await approveReview(reviewPath);
     const review = parseMarkdown(await readFile(reviewPath, "utf8"));
-    review.data.promotion_references = ["doc/decisions/DEC-RECOVERY.md"];
+    review.data.promotion_references = ["docs/decisions/DEC-RECOVERY.md"];
     const records = review.data.knowledge_review as Array<Record<string, unknown>>;
     const taskState = records.find((item) => item.path === "TASK_STATE.md")!;
     taskState.classification = "promoted";
-    taskState.promotion_references = ["doc/decisions/DEC-RECOVERY.md"];
+    taskState.promotion_references = ["docs/decisions/DEC-RECOVERY.md"];
     await writeFile(reviewPath, renderMarkdown(review.data, review.body));
     const archive = await finalizeClosure(project, "recovery");
     expect(await readFile(path.join(archive, "TASK_STATE.md"), "utf8")).toContain("Signed manifests must be durable.");
     await expect(readFile(statePath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
-    expect(await readFile(path.join(project, "doc", "DECISIONS.md"), "utf8")).toContain("DEC-RECOVERY");
-    expect(await readFile(path.join(project, "doc", "REPORTS.md"), "utf8")).toContain("Closure of recovery");
-    const closureReports = await readdir(path.join(project, "doc", "reports", "closures"));
+    expect(await readFile(path.join(project, "docs", "decisions", "INDEX.md"), "utf8")).toContain("DEC-RECOVERY");
+    expect(await readFile(path.join(project, "docs", "reports", "INDEX.md"), "utf8")).toContain("Closure of recovery");
+    const closureReports = await readdir(path.join(project, "docs", "reports", "closures"));
     expect(closureReports).toHaveLength(1);
-    expect(closureReports[0]).toMatch(/^closure-of-recovery--CLOSURE-/);
+    expect(closureReports[0]).toBe("closure-of-recovery.md");
     expect((await selectFeatureContext(project, { memory: "deep" })).files).toEqual(expect.arrayContaining([
-      "doc/decisions/DEC-RECOVERY.md",
-      path.relative(project, path.join(project, "doc", "reports", "closures", closureReports[0]!)),
+      "docs/decisions/DEC-RECOVERY.md",
+      path.relative(project, path.join(project, "docs", "reports", "closures", closureReports[0]!)),
     ]));
     expect(await validateProject(project)).toEqual([]);
   });

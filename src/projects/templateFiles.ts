@@ -13,8 +13,8 @@ export function projectOverview(name: string, repository?: string, projectId?: s
   return renderTemplate("project/PROJECT.md.template", {
     PROJECT_NAME: name,
     PROJECT_ID: projectId ?? "",
-    REPOSITORY_SUFFIX: repository ? " for the source repository resolved through `repo/`" : "",
-    REPOSITORY_GUIDANCE: repository ? "Use `repo/` as the stable source path. Machine-specific paths belong only in `.local/state.json` and the symlink target." : "No source repository is attached yet.",
+    REPOSITORY_SUFFIX: repository ? " for the source repository recorded in `.local/state.json`" : "",
+    REPOSITORY_GUIDANCE: repository ? "Resolve source paths through repositoryPath in `.local/state.json`; worktrees share the primary checkout context." : "No source repository is attached yet.",
   });
 }
 

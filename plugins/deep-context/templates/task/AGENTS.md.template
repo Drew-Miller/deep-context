@@ -6,8 +6,8 @@ This is a transient task workspace. Durable project truth must survive its delet
 
 1. Read `TASK_CONTEXT.md`, `CONTEXT_MANIFEST.md`, and `TASK_STATE.md`.
 2. Read `../../AGENTS.md` and `../../CONTEXT_MAP.md`.
-3. Read `../../repo/AGENTS.md` when present and follow its required source startup route and live schedule. Repository-specific ownership rules remain authoritative.
-4. Read relevant Backlog pitches and Active objectives, then load only the feature, contract, requirement, and Backlog bodies selected by the manifest.
+3. Read the attached source checkout’s `AGENTS.md` through the recorded source binding when present and follow its required source startup route and live schedule. Repository-specific ownership rules remain authoritative.
+4. Read relevant work item summaries, then load only the selected work item, feature, contract, and requirement bodies.
 5. Edit source only within the checkout permitted by the attached repository's instructions.
 
 ## Chat ownership
@@ -24,4 +24,4 @@ Start undeclared dependencies at contract level. Do not recursively expand depen
 
 ## Closure
 
-The task may be destroyed after closure. Promote durable knowledge under `../../doc/`; uncertain future intent belongs in Backlog. Finalization requires an evidence-bound closure review.
+The task may be destroyed after closure. Promote durable knowledge under `../../docs/`; future proposals belong in `../../work/items/` with proposed status. Finalization requires an evidence-bound closure review.

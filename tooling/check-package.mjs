@@ -16,6 +16,10 @@ const packageFiles = new Set([
   "dist/cli.mjs",
   "skills/deep-close/SKILL.md",
   "skills/deep-close/agents/openai.yaml",
+  "skills/deep-audit/SKILL.md",
+  "skills/deep-audit/agents/openai.yaml",
+  "skills/deep-audit/references/report-template.md",
+  "skills/deep-audit/scripts/inventory.mjs",
   "skills/deep-init/SKILL.md",
   "skills/deep-init/agents/openai.yaml",
   "skills/deep-task/SKILL.md",
@@ -122,7 +126,13 @@ export async function smokePackage(packageRoot) {
     await exec("git", ["-C", repository, "config", "user.name", "Package Check"], options);
     await writeFile(path.join(repository, "README.md"), "# Package fixture\n");
     await cli(command, ["init", "--repo", repository], options);
-    const architecturePath = path.join(context, "doc", "ARCHITECTURE.md");
+    const auditInventory = JSON.parse(await cli(path.join(copiedPackage, "skills", "deep-audit", "scripts", "inventory.mjs"), ["--project", context], options));
+    assert.equal(auditInventory.schemaVersion, 1);
+    assert.ok(auditInventory.entries.some((entry) => entry.path === "docs/architecture.md"));
+    assert.ok(!auditInventory.entries.some((entry) => entry.path === "repo"));
+    assert.ok(!auditInventory.entries.some((entry) => entry.path.startsWith("repo/")), "audit inventory followed the repository symlink");
+    assert.deepEqual(auditInventory.errors, []);
+    const architecturePath = path.join(context, "docs", "architecture.md");
     const authoredArchitecture = "# Authored architecture\n\nKeep this exact authored architecture.\n";
     await writeFile(architecturePath, authoredArchitecture);
     await cli(command, ["init", "--repo", repository], options);

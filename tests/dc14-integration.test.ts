@@ -41,12 +41,15 @@ describe("DC-14 ordering integration", () => {
     expect(await readFile(path.join(firstTask.taskPath, "TASK_STATE.md"), "utf8")).toBe(firstState);
     expect(await readFile(path.join(firstTask.taskPath, "chats", firstTask.bindingId!, "MEMORY.md"), "utf8")).toBe(firstBinding);
 
-    await rm(path.join(project, "doc", "BACKLOG.md"));
+    await rm(path.join(project, "work", "INDEX.md"));
     await rm(path.join(project, ".local", "chat-index.json"), { force: true });
     await exec(process.execPath, [cli, "rebuild-indexes", "--project", project]);
 
-    const rebuiltBacklog = await readFile(path.join(project, "doc", "BACKLOG.md"), "utf8");
-    expect(rebuiltBacklog.indexOf(`| 1 | ${secondBacklogId} |`)).toBeLessThan(rebuiltBacklog.indexOf(`| 2 | ${firstBacklogId} |`));
+    const rebuiltBacklog = await readFile(path.join(project, "work", "INDEX.md"), "utf8");
+    const queuedRows = rebuiltBacklog.split("\n").filter(row => row.includes(firstBacklogId) || row.includes(secondBacklogId));
+    expect(queuedRows).toHaveLength(2);
+    expect(queuedRows[0]).toContain(`| 1 |`); expect(queuedRows[0]).toContain(secondBacklogId);
+    expect(queuedRows[1]).toContain(`| 2 |`); expect(queuedRows[1]).toContain(firstBacklogId);
     const listed = JSON.parse((await exec(process.execPath, [cli, "list-tasks", "--project", project, "--json"])).stdout) as Array<{ taskId: string; queuePosition: number; ownerBindingId: string | null }>;
     expect(listed.map(item => [item.taskId, item.queuePosition])).toEqual([[secondTask.taskId, 1], [firstTask.taskId, 2]]);
     const resolved = JSON.parse((await exec(process.execPath, [cli, "resolve-task", "--project", project, "--task", firstTask.taskId, "--binding-id", firstTask.bindingId!, "--json"])).stdout) as { taskId: string; ownerBindingId: string; isOwner: boolean; stateRevision: number };

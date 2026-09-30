@@ -76,7 +76,7 @@ describe("repository inventory", () => {
     await exec("git", ["-C", repo, "commit", "-m", "initial"]);
     const home = path.join(base, "home");
     const project = await initProject(home, { name: "project", repository: repo });
-    const sourceDirectory = path.join(project, "doc", "sources");
+    const sourceDirectory = path.join(project, "sources", "records");
     const names = await import("node:fs/promises").then(({ readdir }) => readdir(sourceDirectory));
     const sourceFile = path.join(sourceDirectory, (await Promise.all(names.map(async (name) => ({ name, data: parseMarkdown(await readFile(path.join(sourceDirectory, name), "utf8")).data })))).find((record) => record.data.path === "README.md")!.name);
     const document = parseMarkdown(await readFile(sourceFile, "utf8"));
@@ -113,8 +113,8 @@ describe("repository inventory", () => {
     await rm(source);
     expect((await validateProject(project)).map((item) => item.code)).toContain("source-inventory-removed");
     await initProject(home, { name: "project", repository: repo });
-    const records = await import("node:fs/promises").then(({ readdir }) => readdir(path.join(project, "doc", "sources")));
-    const bodies = await Promise.all(records.map((file) => readFile(path.join(project, "doc", "sources", file), "utf8")));
+    const records = await import("node:fs/promises").then(({ readdir }) => readdir(path.join(project, "sources", "records")));
+    const bodies = await Promise.all(records.map((file) => readFile(path.join(project, "sources", "records", file), "utf8")));
     const retained = parseMarkdown(bodies.find((body) => body.includes("path: idea.md"))!);
     expect(retained.data).toMatchObject({ tracking: "missing", disposition: "missing" });
     expect(retained.data.review_history).toBeTruthy();

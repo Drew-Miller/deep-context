@@ -10,7 +10,8 @@ import { checkpointTask, createTask } from "../tasks/index.js";
 import { finalizeClosure, prepareClosure } from "../closure/index.js";
 import { validateProject } from "../validation/index.js";
 import { startMemoryTask, listMemoryTasks, resolveMemoryTask, resumeMemoryTask, saveMemoryTask, attachMemorySource, rebuildChatIndex, repairMemoryTasks } from "../tasks/memory.js";
-import { activateBacklog, captureBacklog } from "../backlog/index.js";
+import { migrateLayout, repairLayout } from "../migration/layout.js";
+import { setWorkItemStatus, activateBacklog, captureBacklog } from "../backlog/index.js";
 import { reorderBacklog } from "../backlog/order.js";
 import { assertNoPendingContext, repairContextOperations } from "../backlog/transactions.js";
 import { reorderMemoryTask } from "../tasks/order.js";
@@ -69,7 +70,29 @@ program.command("migrate-project")
     console.log(`Migrated project: ${result.projectRoot}\nRecoverable backup: ${result.backup}`);
   });
 
-program.command("capture-backlog")
+program.command("migrate-layout")
+  .option("--project <path>")
+  .option("--apply")
+  .option("--json")
+  .action(async options => output(await migrateLayout(await projectFor(options), { apply: Boolean(options.apply) }), options.json));
+
+program.command("repair-layout")
+  .requiredOption("--project <path>")
+  .action(async options => { await repairLayout(path.resolve(options.project)); console.log("Layout recovery complete"); });
+
+program.command("set-work-status")
+  .argument("<id>")
+  .requiredOption("--status <status>")
+  .option("--project <path>")
+  .option("--outcome <text>")
+  .option("--open-gate <text...>")
+  .option("--merged-into <id>")
+  .action(async (id, options) => {
+    if (!["planned", "blocked", "merged", "done"].includes(options.status)) throw new Error("Status must be planned, blocked, merged or done; use activate-work for execution");
+    console.log(await setWorkItemStatus(await projectFor(options), id, options.status, { outcome: options.outcome, openGates: options.openGate, mergedInto: options.mergedInto }));
+  });
+
+program.command("capture-work").alias("capture-backlog")
   .requiredOption("--title <title>")
   .requiredOption("--pitch <pitch>")
   .requiredOption("--provenance <source>")
@@ -79,7 +102,7 @@ program.command("capture-backlog")
   .option("--conflict <id...>")
   .action(async (options) => console.log(await captureBacklog(await projectFor(options), { title: options.title, pitch: options.pitch, provenance: options.provenance, features: options.feature, related: options.related, conflicts: options.conflict })));
 
-program.command("activate-backlog")
+program.command("activate-work").alias("activate-backlog")
   .argument("<id>")
   .requiredOption("--objective <text>")
   .option("--project <path>")
@@ -87,7 +110,7 @@ program.command("activate-backlog")
   .option("--decision <path>")
   .action(async (id, options) => console.log(await activateBacklog(await projectFor(options), id, options.objective, { tasks: options.task, decision: options.decision })));
 
-program.command("reorder-backlog")
+program.command("reorder-work").alias("reorder-backlog")
   .argument("<id>")
   .option("--before <id>")
   .option("--after <id>")
@@ -261,13 +284,14 @@ program.command("start-task")
   .option("--name <title>")
   .option("--context-file <path>", "JSON object with relevant initial task context")
   .option("--predecessor-task-id <id>", "Link a new task to a closed predecessor")
+  .option("--work-item <id...>", "Link canonical work IDs or aliases")
   .option("--project <path>")
   .option("--chat-id <id>")
   .option("--feature <name>")
   .option("--json")
   .action(async (options) => {
     const initialContext = options.contextFile ? JSON.parse(await readText(path.resolve(options.contextFile))) : undefined;
-    output(await startMemoryTask(await projectFor(options), { ...options, ...identity(options), initialContext }), options.json);
+    output(await startMemoryTask(await projectFor(options), { ...options, ...identity(options), workItems: options.workItem, initialContext }), options.json);
   });
 
 program.command("list-tasks")
@@ -292,13 +316,14 @@ program.command("resolve-task")
 
 program.command("resume-task")
   .argument("<task>")
+  .option("--work-item <id...>", "Link canonical work IDs or aliases")
   .option("--project <path>")
   .option("--chat-id <id>")
   .option("--binding-id <id>")
   .option("--expected-revision <number>")
   .option("--takeover")
   .option("--json")
-  .action(async (task, options) => output(await resumeMemoryTask(await projectFor(options), task, { ...identity(options), takeover: options.takeover }), options.json));
+  .action(async (task, options) => output(await resumeMemoryTask(await projectFor(options), task, { ...identity(options), takeover: options.takeover, workItems: options.workItem }), options.json));
 
 program.command("save-task")
   .argument("<task>")

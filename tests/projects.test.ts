@@ -31,7 +31,7 @@ describe("project initialization", () => {
     cleanup.push(home);
     const root = await initProject(home, { name: "Example Project" });
     expect(await readFile(path.join(root, "CONTEXT_MAP.md"), "utf8")).toContain("Indexes can be deleted and rebuilt");
-    expect(await readFile(path.join(root, "doc", "FEATURES.md"), "utf8")).not.toContain("billing");
+    expect(await readFile(path.join(root, "docs", "features", "INDEX.md"), "utf8")).not.toContain("billing");
     expect(await validateProject(root)).toEqual([]);
   });
 
@@ -150,6 +150,7 @@ describe("project initialization", () => {
     await exec("git", ["-C", repository, "add", "."]);
     await exec("git", ["-C", repository, "commit", "-m", "initial"]);
     const oldRoot = path.join(base, "old project");
+    await mkdir(path.join(oldRoot, "doc"), { recursive: true });
     await initProject(base, { name: "source-repo", repository, contextPath: oldRoot });
     await mkdir(path.join(oldRoot, "doc", "shelf"));
     await writeFile(path.join(oldRoot, "doc", "shelf", "SHELF-0001.md"), "---\nid: SHELF-0001\ntitle: Import context\nstatus: shelved\ntype: future-work\nfeatures: []\ntokens: []\n---\n\n# Import context\n\nKeep a recoverable record of the import.\n");
@@ -161,10 +162,10 @@ describe("project initialization", () => {
     expect(projectRoot).toBe(path.join(await realpath(repository), ".deep-context"));
     expect(await realpath(oldRoot)).toBe(projectRoot);
     expect(await readFile(path.join(backup, "doc", "shelf", "SHELF-0001.md"), "utf8")).toContain("status: shelved");
-    expect(await readFile(path.join(projectRoot, "doc", "backlog", "SHELF-0001.md"), "utf8")).toContain("pitch: Keep a recoverable record");
-    expect(await readFile(path.join(projectRoot, "doc", "BACKLOG.md"), "utf8")).toContain("SHELF-0001");
+    expect(await readFile(path.join(projectRoot, "work", "items", "import-context.md"), "utf8")).toContain("pitch: Keep a recoverable record");
+    expect(await readFile(path.join(projectRoot, "work", "INDEX.md"), "utf8")).toContain("SHELF-0001");
     expect(await readFile(path.join(projectRoot, ".local", "archives", "old-task", "TASK_STATE.md"), "utf8")).toContain("Closed task");
-    expect(await readFile(path.join(projectRoot, "doc", "reports", "closures", "old-task.md"), "utf8")).toContain("Old closure");
+    expect(await readFile(path.join(projectRoot, "docs", "reports", "old-closure.md"), "utf8")).toContain("Old closure");
     expect(await validateProject(projectRoot)).toEqual([]);
   });
 
@@ -205,6 +206,7 @@ describe("project initialization", () => {
     await exec("git", ["-C", repository, "add", "."]);
     await exec("git", ["-C", repository, "commit", "-m", "initial"]);
     const oldRoot = path.join(base, "external context");
+    await mkdir(path.join(oldRoot, "doc"), { recursive: true });
     await initProject(base, { name: "source-repo", repository, contextPath: oldRoot });
     await writeFile(path.join(oldRoot, "doc", "requirements", "REQ-BAD.md"), "---\nid: REQ-BAD\ntitle: Missing evidence\nstatus: active\norigin: confirmed\nsource: doc/missing.md\n---\n\n# Missing evidence\n");
     const originalAgents = await readFile(path.join(repository, "AGENTS.md"), "utf8");

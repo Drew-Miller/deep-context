@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { activateBacklog, captureBacklog } from "../src/backlog/index.js";
 import { repairContextOperations } from "../src/backlog/transactions.js";
 import { parseMarkdown } from "../src/frontmatter/index.js";
-import { initProject } from "../src/projects/index.js";
+import { legacyInitProject as initProject } from "./legacy-fixture.js";
 import { validateProject } from "../src/validation/index.js";
 
 describe("Backlog planning", () => {

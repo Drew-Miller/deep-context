@@ -95,7 +95,7 @@ describe("memory task closure", () => {
     ]));
     const resolved = await resolveMemoryTask(project, started.taskId);
     expect(resolved.taskPath).toBe(archive);
-    expect(resolved.requiredReads[0]).toMatch(/\/doc\/reports\/closures\/closure-of-.*--CLOSURE-/);
+    expect(resolved.requiredReads[0]).toMatch(/\/docs\/reports\/closures\/closure-of-.*\.md$/);
     expect(resolved.requiredReads).not.toContain(path.join(archive, "REPORT.md"));
     await Promise.all(resolved.requiredReads.map(file => readFile(file, "utf8")));
     expect(resolved.requiredReads.every(file => file.startsWith(project))).toBe(true);

@@ -5,6 +5,7 @@ import { atomicWrite, exists } from "../core/fs.js";
 import { git } from "../core/git.js";
 import { parseMarkdown } from "../frontmatter/index.js";
 import { sourceSnapshot, type SourceBinding } from "../tasks/source.js";
+import { layoutPaths } from "../core/layout.js";
 import { rebuildIndexes } from "../indexing/index.js";
 
 interface Receipt { taskId: string; taskDigest: string; archiveDigest: string; contextDigest: string; source: string }
@@ -29,7 +30,12 @@ async function digestTree(root: string, skip: (relative: string) => boolean = ()
 const skipWorktree = (relative: string) => relative === "worktree" || relative.startsWith(`worktree${path.sep}`);
 async function contextDigest(root: string): Promise<string> {
   const hash = createHash("sha256");
-  hash.update(await digestTree(path.join(root, "doc"), (relative) => relative.startsWith(`reports${path.sep}closures${path.sep}`) || (!relative.includes(path.sep) && relative !== "ARCHITECTURE.md")));
+  const layout = layoutPaths(root);
+  hash.update(await digestTree(layout.docs, (relative) => relative.startsWith(`reports${path.sep}closures${path.sep}`) || (!relative.includes(path.sep) && relative !== path.basename(layout.architecture))));
+  if (layout.compact) {
+    hash.update(await digestTree(layout.work));
+    hash.update(await digestTree(layout.sources));
+  }
   for (const file of ["AGENTS.md", "CONTEXT_MAP.md", "PROJECT.md", "START_HERE.md", "docs/plan/TASKS.md", "docs/plan/STATUS.json"]) {
     if (await exists(path.join(root, file))) hash.update(file).update(await readFile(path.join(root, file)));
   }

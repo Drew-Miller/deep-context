@@ -1,3 +1,4 @@
+import { layoutPaths } from "../core/layout.js";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { atomicWrite, exists, readText } from "../core/fs.js";
@@ -63,7 +64,9 @@ function legacyReportMetadata(relative: string, body: string): Record<string, un
 }
 
 export async function buildIndexes(projectRoot: string): Promise<Map<string, string>> {
-  const doc = path.join(projectRoot, "doc");
+  const layout = layoutPaths(projectRoot);
+  if (layout.compact) return buildCompactIndexes(projectRoot);
+  const doc = layout.docs;
   const features = await records(path.join(doc, "features"), (file) => path.basename(file) === "FEATURE.md");
   const requirements = await records(path.join(doc, "requirements"));
   const backlog = await records(path.join(doc, "backlog"));
@@ -90,4 +93,33 @@ function render(title: string, headers: string[], rows: unknown[][]): string {
   const header = `| ${headers.join(" | ")} |\n|${headers.map(() => "---").join("|")}|`;
   const body = rows.length ? rows.map((row) => `| ${row.map(cell).join(" | ")} |`).join("\n") : `| ${headers.map(() => "—").join(" | ")} |`;
   return `# ${title}\n\n> Generated from canonical frontmatter. Rebuild safely; do not store unique knowledge here.\n\n${header}\n${body}\n`;
+}
+
+async function buildCompactIndexes(root: string): Promise<Map<string, string>> {
+  const p = layoutPaths(root);
+  const result = new Map<string, string>();
+  for (const name of ["features", "requirements", "decisions", "reports", "sources"] as const) {
+    const directory = p[name];
+    const target = p.indexes[name];
+    const rows = (await records(directory, file => path.basename(file) !== "INDEX.md" && (name !== "features" || path.basename(file) === p.featureFile)))
+      .filter(row => typeof (row.data.id ?? row.data.name) === "string");
+    const links = rows.map(row => {
+      const file = path.resolve(path.dirname(directory), row.relative);
+      const relative = path.relative(path.dirname(target), file).split(path.sep).join("/");
+      const label = String(row.data.title ?? row.data.name ?? row.data.path ?? row.data.id).replaceAll("[", "\\[").replaceAll("]", "\\]");
+      return [row.data.id ?? row.data.name, `[${label}](${relative})`, row.data.status ?? row.data.disposition, name === "sources" ? row.data.reason : row.data.feature ?? row.data.features];
+    });
+    result.set(target, render(name[0].toUpperCase() + name.slice(1), ["ID", "Document", "Status", name === "sources" ? "Reason" : "Features"], links));
+  }
+  const work = (await records(p.work)).filter(row => typeof row.data.id === "string");
+  const sort = (a: typeof work[number], b: typeof work[number]) => Number(a.data.order ?? Infinity) - Number(b.data.order ?? Infinity) || String(a.data.id).localeCompare(String(b.data.id));
+  let body = "# Work\n\nGenerated from canonical work/items frontmatter. Item metadata is authoritative; do not maintain a second schedule.\n";
+  for (const [title, statuses] of [["Queue", ["proposed", "planned"]], ["Current execution", ["active", "blocked"]], ["Completed and merged", ["done", "merged"]]] as const) {
+    const rows = work.filter(row => (statuses as readonly unknown[]).includes(row.data.status)).sort(sort);
+    body += `\n## ${title}\n\n| Order | Work item | Status | ID |\n|---|---|---|---|\n`;
+    for (const row of rows) body += `| ${cell(row.data.order)} | [${cell(row.data.title)}](${row.relative.split(path.sep).join("/")}) | ${cell(row.data.status)} | ${cell(row.data.id)} |\n`;
+    if (!rows.length) body += "| — | None | — | — |\n";
+  }
+  result.set(p.indexes.work, body);
+  return result;
 }

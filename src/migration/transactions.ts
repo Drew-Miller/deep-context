@@ -1,11 +1,12 @@
+import { layoutPaths } from "../core/layout.js";
 import { randomUUID } from "node:crypto";
-import { lstat, readdir } from "node:fs/promises";
+import { lstat, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { atomicWrite, exists, readText, within } from "../core/fs.js";
 import { rebuildIndexes } from "../indexing/index.js";
 import { withProjectLock } from "../tasks/transactions.js";
 
-interface Write { path: string; before: string | null; after: string }
+interface Write { path: string; before: string | null; after: string | null }
 interface Operation { version: 1; status: "pending" | "committed"; writes: Write[] }
 
 const collections = ["requirements", "decisions", "reports", "sources"] as const;
@@ -13,10 +14,10 @@ const operationDirectory = (root: string): string => path.join(root, ".local", "
 
 async function safeTarget(root: string, relative: string): Promise<string> {
   const target = path.resolve(root, relative);
-  if (!target.endsWith(".md") || !collections.some((name) => {
-    const directory = path.join(root, "doc", name);
+  if (!target.endsWith(".md") || !(collections.some((name) => {
+    const directory = layoutPaths(root)[name];
     return within(directory, target) && target !== directory;
-  })) throw new Error(`Filename operation target is outside approved record storage: ${relative}`);
+  }) || (layoutPaths(root).compact && [layoutPaths(root).work, path.join(root,"tasks")].some(dir => within(dir,target) && dir !== target)) || (layoutPaths(root).compact && ["AGENTS.md","CONTEXT_MAP.md","PROJECT.md"].includes(relative)))) throw new Error(`Filename operation target is outside approved record storage: ${relative}`);
   let current = target;
   while (current !== root && within(root, current)) {
     try { if ((await lstat(current)).isSymbolicLink()) throw new Error(`Filename operation rejects symlink target: ${relative}`); }
@@ -47,19 +48,19 @@ async function applyOperation(root: string, file: string, operation: Operation):
   if (operation.version !== 1 || !Array.isArray(operation.writes) || !operation.writes.length) throw new Error("Invalid filename recovery journal");
   const targets = new Set<string>();
   for (const write of operation.writes) {
-    if (typeof write.path !== "string" || typeof write.after !== "string" || (write.before !== null && typeof write.before !== "string")) throw new Error("Invalid filename recovery write");
+    if (typeof write.path !== "string" || (write.after !== null && typeof write.after !== "string") || (write.before !== null && typeof write.before !== "string")) throw new Error("Invalid filename recovery write");
     const target = await safeTarget(root, write.path);
     if (targets.has(target)) throw new Error(`Duplicate filename recovery path: ${write.path}`);
     targets.add(target);
     const current = await exists(target) ? await readText(target) : null;
     if (current !== write.before && current !== write.after) throw new Error(`Recovery refuses changed record: ${write.path}`);
   }
-  for (const write of operation.writes) await atomicWrite(await safeTarget(root, write.path), write.after);
+  for (const write of operation.writes) { const target = await safeTarget(root, write.path); if (write.after === null) await rm(target, { force: true }); else await atomicWrite(target, write.after); }
   await atomicWrite(file, JSON.stringify({ ...operation, status: "committed" }));
 }
 
 /** Caller holds the shared project lock. Original and destination bytes are journaled before writes. */
-export async function writeFilenameOperation(root: string, writes: Map<string, string>): Promise<void> {
+export async function writeFilenameOperation(root: string, writes: Map<string, string | null>): Promise<void> {
   await assertNoPendingFilenameOperations(root);
   const operation: Operation = { version: 1, status: "pending", writes: [] };
   for (const [target, after] of writes) {

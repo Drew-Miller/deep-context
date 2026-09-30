@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deep Audit"
+  short_description: "Audit durable project context and prioritize evidence-backed cleanup."
+  default_prompt: "Use $deep-audit to audit this initialized Deep Context project."
