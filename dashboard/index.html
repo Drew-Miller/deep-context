@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deep Context · Project overview</title>
+  <link rel="stylesheet" href="styles.css?v=2">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Project navigation">
+      <div class="brand"><span class="brand-mark">◈</span><span>deep context<small>PROJECT WORKSPACE</small></span></div>
+      <div class="project-label">PROJECT <span>⌄</span></div>
+      <div class="project"><span class="project-icon">D</span><span>Deep Context<small>Local project</small></span></div>
+      <div class="nav-label">WORKSPACE</div>
+      <nav><button class="nav-item selected" data-view="board"><span>▦</span> Work board</button></nav>
+      <div class="nav-label">KNOWLEDGE <span class="muted">EXPLORE</span></div>
+      <div id="tree" class="tree"></div>
+      <div class="sidebar-footer"><span class="status-dot"></span> Read-only prototype <span class="info" title="This preview does not edit your project">ⓘ</span></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div><span class="crumb">Deep Context</span><span class="slash">/</span><span id="breadcrumb">Work board</span></div><div class="top-actions"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Search this preview" aria-label="Search records"><kbd>/</kbd></label><button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark mode" aria-pressed="false">Dark mode</button><span class="avatar">DC</span></div></header>
+      <div class="content">
+        <section id="board-view">
+          <div class="eyebrow"><span class="status-dot"></span> PROJECT OVERVIEW <span class="eyebrow-sep">/</span> WORKSPACE</div>
+          <div class="heading-row"><div><h1>Work board</h1><p>A little more clarity for the work ahead.</p></div><span class="badge">◉ &nbsp; Local project</span></div>
+          <div class="overview"><div><span class="overview-icon">✦</span><div><strong>Your project, in context.</strong><p>Track what's next and find the thinking behind it, all in one place.</p></div></div><button data-open=".deep-context/START.md">Explore the workspace <span>→</span></button></div>
+          <div class="section-heading"><div><h2>Project work</h2><p>Ordered work items from your project board</p></div><span class="view-label">▦ &nbsp; Board view</span></div>
+          <div class="board" id="board"></div>
+          <div class="bottom-grid"><article class="panel"><div class="panel-header"><div><span class="panel-icon purple">◇</span><h3>Plans</h3></div><button data-open=".deep-context/plans/plans.md">View map ↗</button></div><p>See the bigger picture and what comes next.</p><button class="list-link" data-open=".deep-context/plans/000020-dashboard-plan.md"><span><b>Project dashboard</b><small>In progress</small></span><span>↗</span></button><button class="list-link" data-open=".deep-context/plans/000010-readable-folders.md"><span><b>Readable folders</b><small>Completed</small></span><span>↗</span></button></article><article class="panel"><div class="panel-header"><div><span class="panel-icon blue">▤</span><h3>Knowledge base</h3></div><button data-open=".deep-context/docs/knowledge.md">Open index ↗</button></div><p>Decisions and requirements that guide the work.</p><button class="list-link" data-open=".deep-context/docs/requirements/readable-folders.md"><span><b>Readable folders</b><small>Project requirement</small></span><span>↗</span></button><button class="list-link" data-open=".deep-context/docs/features/project-dashboard.md"><span><b>Project dashboard</b><small>Feature requirements</small></span><span>↗</span></button></article></div>
+        </section>
+        <section id="record-view" hidden>
+          <button class="back-button" data-view="board">← &nbsp; Back to work board</button>
+          <div class="record-layout"><article class="record-main"><div class="eyebrow">DEEP CONTEXT <span class="eyebrow-sep">/</span> <span id="record-category">RECORD</span></div><h1 id="record-title"></h1><div id="record-path" class="record-path"></div><div id="record-body" class="record-body"></div></article><aside class="record-related"><h2>Related records</h2><p>Continue exploring the context for this work.</p><div id="related-list"></div></aside></div>
+        </section>
+      </div>
+      <footer>DEEP CONTEXT <span>Made for thoughtful work.</span><span class="footer-right">LOCAL PREVIEW · READ ONLY</span></footer>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,9 +1,7 @@
-<!-- deep-context:start -->
+# Deep Context project entry
 
-## Deep Context
+Start at [.deep-context/START.md](.deep-context/START.md). Follow the map for the question at hand, then open the selected plan, work item or document. Treat links as choices, not automatic imports.
 
-This machine uses Deep Context for filesystem-backed project memory. Inside an initialized Deep Context project or task, follow the nearest AGENTS.md and CONTEXT_MAP.md. Load lightweight indexes first and canonical document bodies only when relevant. Record durable conclusions in project files before ending work; never rely on chat history as the only copy.
+Use the repository's [lightweight skills](skills) for work and plan operations. To resume, follow [deep-context-continue](skills/deep-context-continue/SKILL.md). Markdown in this checkout is the source of truth. No plugin installation or legacy CLI is needed.
 
-Project context is ".deep-context/" in the primary repository checkout; Git worktrees share it. Read its AGENTS.md and CONTEXT_MAP.md. On startup and recovery after compaction, use the bundled Deep Context CLI to resolve-task --allow-unbound --json with the current CODEX_THREAD_ID when available, then follow requiredReads for an existing binding. An unbound chat stays at project scope until the user invokes deep-task. One chat belongs to one task even after release or closure. Before source edits or shared task writes, refresh ownership and state; a non-owner must explicitly resume, with confirmed takeover if another chat owns the task. Checkpoint meaningful progress before ending work turns. Source repository instructions retain their authority.
-
-<!-- deep-context:end -->
+Plans coordinate phase order; each phase keeps its requested work items and verification in one descriptive file. Follow the [shared definitions](.deep-context/docs/requirements/plans-phases-and-work.md) when creating or updating these records.
