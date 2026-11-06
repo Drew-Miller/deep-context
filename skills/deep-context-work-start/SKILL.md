@@ -14,3 +14,5 @@ For path moves use `python3 <skills-root>/_shared/paths.py ROOT work-move SOURCE
 If the selected work item is a section within a phase work record, mark that section in progress and check its prerequisites. Do not move the entire phase record merely to start one section.
 
 The execution home is the phase record: keep scope, ordered requests, implementation, verification and next action together. Start at the selected phase rather than scaffolding separate plan packets or check files. Follow `docs/requirements/plans-phases-and-work.md`.
+
+After settled edits to rendered context, run `python3 <skills-root>/_shared/refresh_dashboard.py` once for the batch. It refreshes only registered outputs, skips unchanged inputs and preserves each snapshot's single source project. It may run as a background shell command while independent work continues; collect its result before claiming the snapshot is current. Do not launch another AI agent or a persistent watcher. Report refresh failures.

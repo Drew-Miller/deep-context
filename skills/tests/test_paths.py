@@ -98,5 +98,27 @@ class PathsTest(unittest.TestCase):
         self.assertEqual((plans / '000020-one.md').read_text(), '[other](000010-two.md#next)')
         self.assertEqual((plans / '000010-two.md').read_text(), 'two')
 
+    def test_phase_rename_preserves_id_and_repairs_live_links(self):
+        self.item('active','000010-first','---\nid: PHASE-STABLE\n---\n# First\n[Self](000010-first.md#checks)')
+        (self.root/'START.md').write_text('[Phase](work/active/000010-first.md#checks)')
+        p.apply(self.root,p.work_rename_map(self.root,'work/active/000010-first.md','work/active/000010-readable-name.md'))
+        target=self.root/'work/active/000010-readable-name.md'
+        self.assertIn('id: PHASE-STABLE',target.read_text())
+        self.assertIn('[Self](000010-readable-name.md#checks)',target.read_text())
+        self.assertEqual((self.root/'START.md').read_text(),'[Phase](work/active/000010-readable-name.md#checks)')
+        with self.assertRaises(ValueError):
+            p.work_rename_map(self.root,'work/active/000010-readable-name.md','work/active/000020-other.md')
+
+    def test_split_phase_rename_keeps_entry_and_supporting_evidence(self):
+        folder=self.root/'work/active/000010-first';folder.mkdir()
+        (folder/'first.md').write_text('[Evidence](evidence.md)')
+        (folder/'evidence.md').write_text('[Phase](first.md)')
+        (self.root/'START.md').write_text('[Phase](work/active/000010-first/first.md)')
+        p.apply(self.root,p.work_rename_map(self.root,'work/active/000010-first','work/active/000010-named-phase'))
+        target=self.root/'work/active/000010-named-phase'
+        self.assertEqual((target/'named-phase.md').read_text(),'[Evidence](evidence.md)')
+        self.assertEqual((target/'evidence.md').read_text(),'[Phase](named-phase.md)')
+        self.assertIn('000010-named-phase/named-phase.md',(self.root/'START.md').read_text())
+
 if __name__ == '__main__':
     unittest.main()

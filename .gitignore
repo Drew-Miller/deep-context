@@ -1,3 +1,7 @@
 .DS_Store
 __pycache__/
 *.pyc
+.deep-context/dashboard/
+dashboard/.dashboard-*.json
+dashboard/.dashboard-*.log
+dashboard/.dashboard-build.lock

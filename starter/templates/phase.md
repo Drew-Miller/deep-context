@@ -18,7 +18,7 @@ Describe the feature and link its overall plan and canonical requirements. Keep 
 
 ### 1. Requested change — pending
 
-Describe the request and what would demonstrate completion. Add further requests as ordered sections. Completing a section does not complete the phase.
+Describe the request and what would demonstrate completion. Add further requests as ordered sections, including work the user chooses to do alongside this phase. Keep implemented results, known completion order and pending user validation here. Completing a section does not complete the phase.
 
 ## Implementation
 
@@ -35,3 +35,5 @@ Link the requirements and decisions that receive implemented, accepted outcomes 
 ## Next action
 
 Name the next safe work item or unresolved gate.
+
+A user-requested phase rename may happen during work or at completion. Preserve the stable ID, items and evidence and repair live links. Conversational recaps are not saved here; status reads this file, while recaps use visible chat context.

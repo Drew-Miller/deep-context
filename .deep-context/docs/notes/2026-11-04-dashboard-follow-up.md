@@ -1,6 +1,6 @@
 # Dashboard follow-up — November 4, 2026
 
-**Design history.** Selected user statements and a summary of their disposition, recorded from this conversation. This is not a complete transcript or a second requirements authority. Consult the [current dashboard requirements](../features/project-dashboard.md), [active ticket](../../work/active/000010-project-dashboard.md) and [consolidated phase](../../work/active/000010-project-dashboard.md#implementation) for current behavior and work.
+**Design history.** Selected user statements and a summary of their disposition, recorded from this conversation. This is not a complete transcript or a second requirements authority. Consult the [current dashboard requirements](../features/project-dashboard.md), [active ticket](../../work/completed/000010-project-dashboard.md) and [consolidated phase](../../work/completed/000010-project-dashboard.md#implementation) for current behavior and work.
 
 ## Initial dashboard request
 
@@ -63,7 +63,7 @@ The user allows splitting a long subject into a directory with descriptive docum
 
 Apply the naming change immediately, preserve the feedback in history, and show implemented changes and open gates in the work and phase records. Generic starter and helper conventions must match the accepted layout.
 
-Implementation update: single-document work items and features are now files, repeated map names have been replaced, and the dashboard references and portable skills follow the new paths. The [active work item](../../work/active/000010-project-dashboard.md) keeps the requested-versus-implemented log. Requirements are still canonical; this note preserves the conversation.
+Implementation update: single-document work items and features are now files, repeated map names have been replaced, and the dashboard references and portable skills follow the new paths. The [active work item](../../work/completed/000010-project-dashboard.md) keeps the requested-versus-implemented log. Requirements are still canonical; this note preserves the conversation.
 
 ## Accepted terminology and appearance
 

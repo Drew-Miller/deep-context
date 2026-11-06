@@ -1,13 +1,25 @@
-# Knowledge index
+# Knowledge
 
-Add links to records as they are created.
+Group current records by what a reader needs to do. These are starting groups, not a fixed taxonomy: adapt them to the project as it grows. Feature requirements belong under `features/`, cross-feature requirements under `requirements/`, and accepted decisions under `decisions/`. Link canonical subjects rather than duplicating their contents.
 
-- Feature-specific requirements belong under `docs/features/<feature>.md`.
-- Cross-feature requirements belong under `docs/requirements/`.
-- Decisions belong under `docs/decisions/`.
+## Setup and structure
 
-Keep each small subject in one descriptive Markdown file with heading sections. Split it into a subject folder with descriptively named documents only when needed for readability. Avoid generic repeated names such as `MAP.md` or `work.md`.
+Add current project initialization, folder and maintenance records as they are created.
 
-A phase is a developed feature idea; its concrete requests are work items tracked transiently. Promote implemented, accepted behavior to canonical requirements. Dropped or replaced work does not require permanent history.
+## Planning and work
 
-Start with the [shared plan, phase and work-item definitions](requirements/plans-phases-and-work.md). These rules are part of the copied starter, not dependent on the source checkout.
+| Need | Canonical record |
+| --- | --- |
+| Understand plans, phases and work items | [Shared definitions](requirements/plans-phases-and-work.md) |
+
+## Context and browsing
+
+Add current context-entry and application-browsing records as they are created.
+
+## Decisions and rationale
+
+Add links to accepted decisions and their reasons as they are created.
+
+## Retired guidance
+
+No retired entries yet. When accepted guidance is withdrawn or replaced, remove its active entry and add a short dated summary here explaining what it was and why it changed. Keep this history outside all active tables. Remove the old hyperlink so deleting the former document cannot leave a dead link. Ordinary dropped work requests need no permanent retirement record.

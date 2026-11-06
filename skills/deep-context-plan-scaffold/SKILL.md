@@ -12,3 +12,5 @@ Create one descriptive Markdown overview under `plans/`: objective, linked phase
 Use top-level ranks of six decimal digits, initially in gaps of ten. Create subplans only when the overview becomes too large to coordinate its phases clearly. If needed, use descriptive inherited stubs such as `release-001-scope`; deeper descendants inherit their ancestry. A subplan is also an overview of phases, not a mandatory layer. Use a subject folder only when multiple documents are justified by readability.
 
 Update `plans/plans.md` and links. Verify with `python3 <skills-root>/_shared/check_maps.py ROOT`.
+
+After settled edits to rendered context, run `python3 <skills-root>/_shared/refresh_dashboard.py` once for the batch. It refreshes only registered outputs, skips unchanged inputs and preserves each snapshot's single source project. It may run as a background shell command while independent work continues; collect its result before claiming the snapshot is current. Do not launch another AI agent or a persistent watcher. Report refresh failures.

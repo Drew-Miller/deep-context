@@ -14,3 +14,5 @@ When a phase is selected, add the request as an ordered section in its descripti
 Keep pending requests transient. Promote implemented, accepted behavior to canonical requirements. Dropped or replaced requests need no permanent record. Update the phase's next action and the board summary if material scope changes. Do not start implementation merely because a request was captured.
 
 Run `python3 <skills-root>/_shared/check_maps.py ROOT` after updating maps or links.
+
+After settled edits to rendered context, run `python3 <skills-root>/_shared/refresh_dashboard.py` once for the batch. It refreshes only registered outputs, skips unchanged inputs and preserves each snapshot's single source project. It may run as a background shell command while independent work continues; collect its result before claiming the snapshot is current. Do not launch another AI agent or a persistent watcher. Report refresh failures.

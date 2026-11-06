@@ -101,6 +101,28 @@ def work_move_map(root, source, lane):
     return result
 
 
+def work_rename_map(root, source, target):
+    source = Path(os.path.abspath(root / source))
+    target = Path(os.path.abspath(root / target))
+    if source.parent.parent != root / 'work' or source.parent.name not in ('backlog', 'active', 'completed') or target.parent != source.parent:
+        raise ValueError('rename must stay within one work status lane')
+    if source.name.split('-')[0] != target.name.split('-')[0]:
+        raise ValueError('rename preserves priority; use work-reorder to change it')
+    if source.is_file():
+        if not re.fullmatch(r'\d{6,}-[a-z0-9][a-z0-9-]*\.md', source.name):
+            raise ValueError('source must be a descriptive work Markdown file')
+        if not re.fullmatch(r'\d{6,}-[a-z0-9][a-z0-9-]*\.md', target.name):
+            raise ValueError('use a descriptive Markdown filename with the existing rank')
+        return {source: target}
+    if not source.is_dir() or not re.fullmatch(r'\d{6,}-[a-z0-9][a-z0-9-]*', target.name):
+        raise ValueError('source must be a work record and target a descriptive subject name')
+    entry = record_file(source)
+    if not entry.is_file():
+        raise ValueError('split subject has no descriptive entry')
+    new_entry = source / (re.sub(r'^\d{6,}-', '', target.name) + '.md')
+    return {source: target, entry: new_entry}
+
+
 def mapped(path, mapping):
     """Apply nested renames against original paths, from root toward leaf."""
     candidates = [old for old in mapping if path == old or path.is_relative_to(old)]
@@ -196,7 +218,7 @@ def apply(root, mapping):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('root', type=Path)
-    parser.add_argument('operation', choices=['work-reorder', 'work-move', 'plan-reorder'])
+    parser.add_argument('operation', choices=['work-reorder', 'work-move', 'work-rename', 'plan-reorder'])
     parser.add_argument('args', nargs='+')
     opts = parser.parse_args()
     root = opts.root.absolute()
@@ -210,6 +232,10 @@ def main():
         if len(opts.args) != 2:
             parser.error('work-move needs SOURCE LANE')
         mapping = work_move_map(root, *opts.args)
+    elif opts.operation == 'work-rename':
+        if len(opts.args) != 2:
+            parser.error('work-rename needs SOURCE TARGET')
+        mapping = work_rename_map(root, *opts.args)
     else:
         parent, *names = opts.args
         directory = Path(os.path.abspath(root / parent))
